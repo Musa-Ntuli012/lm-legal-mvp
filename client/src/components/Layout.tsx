@@ -33,17 +33,17 @@ export function Layout({ user, csrfToken, children }: LayoutProps) {
   const isStudent = user?.role === 'student';
 
   return (
-    <div className="flex flex-col min-h-screen bg-beige-bg text-text-deep">
-      <header className="border-b border-beige-border bg-beige-surface flex-shrink-0">
+    <div className="flex flex-col min-h-screen bg-canvas text-text-deep">
+      <header className="border-b border-border-control bg-raised flex-shrink-0">
         <div className="max-w-[1400px] mx-auto px-4 py-4 flex items-center justify-between">
           <NavLink
             to="/"
-            className="flex items-center gap-2 text-xl font-bold text-navy tracking-tight"
+            className="flex items-center gap-2 text-xl font-bold text-primary tracking-tight"
           >
-            <span className="w-8 h-8 rounded bg-navy flex items-center justify-center text-white font-bold text-lg">
+            <span className="w-8 h-8 rounded bg-primary flex items-center justify-center text-white font-bold text-lg">
               LM
             </span>
-            <span>LM Legal Demo</span>
+            <span>LM Legal</span>
           </NavLink>
 
           <div className="flex items-center gap-3">
@@ -74,16 +74,16 @@ export function Layout({ user, csrfToken, children }: LayoutProps) {
                 )}
                 {isMarker && (
                   <NavLink to="/marker/dashboard" className="btn btn-outline btn-sm">
-                    Marker Dashboard
+                    Marker dashboard
                   </NavLink>
                 )}
                 {isAdmin && (
                   <>
                     <NavLink to="/admin" className="btn btn-outline btn-sm">
-                      Admin
+                      Admin overview
                     </NavLink>
                     <NavLink to="/admin/task-builder" className="btn btn-outline btn-sm">
-                      Task Builder
+                      Task builder
                     </NavLink>
                   </>
                 )}
@@ -99,27 +99,21 @@ export function Layout({ user, csrfToken, children }: LayoutProps) {
         </div>
       </header>
 
-      <main className="flex-1 max-w-[1400px] mx-auto px-4 py-8 page-enter animate-fade-in">
+      <main className="flex-1 max-w-[1400px] mx-auto px-4 py-6 page-enter animate-fade-in">
         {children}
       </main>
 
-      <footer className="border-t border-beige-border bg-beige-surface mt-auto py-6 flex-shrink-0">
+      <footer className="border-t border-border-control bg-raised py-8 flex-shrink-0">
         <div className="max-w-[1400px] mx-auto px-4 text-center">
-          <p className="text-xs text-text-muted">
-            LM Legal Demo Unfair dismissal CCMA legal simulation
+          <p className="text-caption-13 text-text-muted">
+            LM Legal built for South African law graduates
           </p>
-          <p className="text-xs text-text-muted mt-1">
-            <NavLink to="/privacy" className="text-navy hover:underline">
-              Privacy notice
-            </NavLink>
-            <span className="mx-2 text-text-muted">|</span>
-            <NavLink to="/terms" className="text-navy hover:underline">
-              Terms of use
-            </NavLink>
-            <span className="mx-2 text-text-muted">|</span>
-            <NavLink to="/cookies" className="text-navy hover:underline">
-              Cookie notice
-            </NavLink>
+          <p className="text-caption-13 text-text-muted mt-2">
+            <NavLink to="/privacy" className="text-text-secondary hover:text-primary">Privacy</NavLink>
+            <span className="mx-3 text-text-muted">and</span>
+            <NavLink to="/terms" className="text-text-secondary hover:text-primary">Terms</NavLink>
+            <span className="mx-3 text-text-muted">and</span>
+            <NavLink to="/cookies" className="text-text-secondary hover:text-primary">Cookies</NavLink>
           </p>
         </div>
       </footer>

@@ -1,126 +1,112 @@
 import { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
+import { Link, useNavigate } from 'react-router-dom';
 
 export function SignInPage() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
-  const { signIn } = useAuth();
-  const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setSubmitting(true);
+    navigate('/dashboard');
+  };
 
-    try {
-      const result = await signIn(email, password);
-      if (result.ok) {
-        navigate(result.redirect || '/dashboard', { replace: true });
-      } else {
-        setError(result.error || 'Sign in failed');
-        setSubmitting(false);
-      }
-    } catch (err) {
-      setError('Sign in failed. Please try again.');
-      setSubmitting(false);
-    }
+  const handleForgot = (e: React.MouseEvent) => {
+    e.preventDefault();
+    navigate('/forgot-password');
   };
 
   return (
-    <div className="max-w-md mx-auto py-8">
-      <div className="card">
-        <div className="mb-6">
-          <h1 className="card-title">Sign in</h1>
-          <p className="card-subtitle">Enter your demo account credentials</p>
+    <div className="min-h-screen flex flex-col bg-canvas text-text-deep">
+      <header className="bg-raised border-b border-border-control flex-shrink-0">
+        <div className="max-w-[1400px] mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xl font-bold text-primary tracking-tight">
+            <span className="w-8 h-8 rounded bg-primary flex items-center justify-center text-white font-bold text-lg">
+              LM
+            </span>
+            <span>LM Legal</span>
+          </div>
+          <nav className="ml-auto text-sm">
+            <Link to="/" className="text-text-secondary hover:text-primary mr-4">Back to home</Link>
+          </nav>
         </div>
+      </header>
 
-        {error && (
-          <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
-            {error}
-          </div>
-        )}
+      <main className="flex-1 flex items-center justify-center p-4">
+        <div className="max-w-md w-full">
+          <div className="bg-raised border border-border-control rounded-lg p-8 shadow-sm animate-fade-in page-enter">
+            <div className="text-center mb-8">
+              <div className="w-12 h-12 rounded bg-primary mx-auto flex items-center justify-center text-white font-bold text-xl mb-4">
+                LM
+              </div>
+              <h2 className="text-display mb-4">Welcome back</h2>
+              <p className="text-body text-text-secondary">
+                Sign in to access your matters and feedback.
+              </p>
+            </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="label">Email address</label>
-            <input
-              type="email"
-              autoComplete="email"
-              required
-              autoFocus
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="input"
-            />
-          </div>
-          <div>
-            <label className="label">Password</label>
-            <input
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="input"
-            />
-          </div>
-          <button
-            type="submit"
-            className="btn btn-primary btn-full w-full"
-            disabled={submitting}
-          >
-            {submitting ? 'Signing in…' : 'Sign in'}
-          </button>
-        </form>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="label" htmlFor="email">Email address</label>
+                <input
+                  type="email"
+                  id="email"
+                  className="input"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@example.org"
+                  autoComplete="email"
+                  required
+                />
+              </div>
+              <div className="relative">
+                <label className="label" htmlFor="password">Password</label>
+                <input
+                  type="password"
+                  id="password"
+                  className="input"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Type your password"
+                  autoComplete="current-password"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={handleForgot}
+                  className="absolute right-3 top-[38px] text-xs text-text-muted hover:text-primary underline underline-offset-2"
+                >
+                  Forgot password
+                </button>
+              </div>
 
-        <div className="mt-6 pt-4 border-t border-beige-border">
-          <p className="text-sm text-text-muted mb-3">New to LM Legal?</p>
-          <NavLink to="/signup" className="text-navy hover:underline text-sm font-medium">
-            Create an account
-          </NavLink>
-        </div>
+              <div className="mt-2 flex items-center justify-between">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" className="w-4 h-4 rounded border-border-control text-primary focus:ring-0" />
+                  <span className="text-sm text-text-secondary">Stay signed in</span>
+                </label>
+              </div>
 
-        <div className="mt-6 pt-4 border-t border-beige-border">
-          <h3 className="card-title mb-3" style={{ fontSize: '15px' }}>
-            Demo credentials copy and paste
-          </h3>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-text-muted">Student</span>
-              <span className="font-mono text-navy">student@lmlegal.demo</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-text-muted">Password</span>
-              <span className="font-mono text-navy">StudentDemo2026!</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-text-muted">Admin</span>
-              <span className="font-mono text-navy">admin@lmlegal.demo</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-text-muted">Password</span>
-              <span className="font-mono text-navy">AdminDemo2026!</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-text-muted">Marker (investor)</span>
-              <span className="font-mono text-navy">investor@lmlegal.demo</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-text-muted">Password</span>
-              <span className="font-mono text-navy">printed at seed time</span>
-            </div>
+              <button
+                type="submit"
+                className="btn btn-primary btn-lg btn-full btn-micro"
+              >
+                Sign in
+              </button>
+            </form>
+
+            <p className="mt-6 text-center text-sm text-text-secondary">
+              Not yet invited? Contact your institution administrator.
+            </p>
           </div>
         </div>
-      </div>
+      </main>
 
-      <div className="mt-8 text-center">
-        <NavLink to="/privacy" className="text-sm text-text-muted hover:underline">
-          Privacy notice
-        </NavLink>
-      </div>
+      <footer className="border-t border-border-control bg-raised py-8 flex-shrink-0">
+        <div className="max-w-[1400px] mx-auto px-4 text-center">
+          <p className="text-caption-13 text-text-muted">LM Legal built for South African law graduates</p>
+        </div>
+      </footer>
     </div>
   );
 }

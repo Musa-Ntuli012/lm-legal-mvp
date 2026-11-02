@@ -1,371 +1,279 @@
-import { useState, useEffect } from 'react';
-import { NavLink } from 'react-router-dom';
+import { useState } from 'react';
+import { NavLink, useParams, useNavigate } from 'react-router-dom';
 
-const STAGE_ORDER = ['brief', 'documents', 'questions', 'decision', 'draft', 'submit'];
+const MATTER_DOCUMENTS = [
+  { id: '1', name: 'Client email - initial instruction.pdf', type: 'pdf', size: '245 KB' },
+  { id: '2', name: 'Case summary - Smith v Jones.docx', type: 'docx', size: '89 KB' },
+  { id: '3', name: 'Relevant statute extract.pdf', type: 'pdf', size: '512 KB' },
+  { id: '4', name: 'Previous memo template.docx', type: 'docx', size: '45 KB' },
+];
+
+const MATTER_QUESTIONS = [
+  {
+    id: 'q1',
+    text: 'Identify the legal issue in the client email and explain the applicable law.',
+    type: 'essay',
+    words: '200-300 words',
+  },
+  {
+    id: 'q2',
+    text: 'Draft a short memo to the advising attorney with your recommendations.',
+    type: 'memo',
+    words: '300-400 words',
+  },
+];
 
 export function Matter() {
-  const [data, setData] = useState<any>(null);
-  const [stage, setStage] = useState<'brief' | 'documents' | 'questions' | 'decision' | 'draft' | 'submit'>('brief');
-  const [answers, setAnswers] = useState<Record<string, number>>({});
-  const [decision, setDecision] = useState<string | null>(null);
-  const [memo, setMemo] = useState('');
-  const [wordCount, setWordCount] = useState(0);
-  const [openDocId, setOpenDocId] = useState<string | null>(null);
-  const [openDoc, setOpenDoc] = useState<any>(null);
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('brief');
+  const [showSubmit, setShowSubmit] = useState(false);
 
-  useEffect(() => {
-    fetch('/api/matter')
-      .then((r) => r.json())
-      .then(setData)
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    setWordCount(memo.trim().split(/\s+/).filter(Boolean).length);
-  }, [memo]);
-
-  const stageIndex = STAGE_ORDER.indexOf(stage);
-  const doneKeys = data?.state?.stages_done || [];
-
-  const inRange = wordCount >= 300 && wordCount <= 500;
-
-  const nextStage = () => {
-    if (stageIndex < STAGE_ORDER.length - 1) {
-      setStage(STAGE_ORDER[stageIndex + 1] as any);
-    }
-  };
-
-  const questions = data?.questions || [];
-  const documents = data?.documents || [];
-  const decisionObj = data?.decision || null;
-  const decisionOptions = decisionObj
-    ? [
-        { id: 'condonation', title: 'Apply for condonation', desc: decisionObj.consequence_condonation || '' },
-        { id: 'poor_prospects', title: 'Advise poor prospects', desc: decisionObj.consequence_poor_prospects || '' },
-      ]
-    : [];
-
-  const handleSubmit = async () => {
-    if (!inRange) {
-      alert('Memo must be 300 to 500 words before submitting.');
-      return;
-    }
-    const res = await fetch('/api/submissions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ memo, decision, csrf_token: '' }),
-    });
-    if (res.ok) {
-      window.location.href = '/dashboard';
-    }
-  };
+  const tabs = [
+    { key: 'brief', label: 'Brief' },
+    { key: 'documents', label: 'Documents' },
+    { key: 'questions', label: 'Questions' },
+    { key: 'feedback', label: 'Feedback' },
+  ];
 
   return (
-    <div className="max-w-[1200px] mx-auto page-enter animate-fade-in">
-      <div className="card">
-        <div className="mb-6">
-          <h1 className="card-title">Legal simulation</h1>
-          <p className="card-subtitle">
-            Unfair dismissal CCMA matter work through each stage.
-          </p>
-        </div>
-
-        <div className="mb-6">
-          <div className="flex gap-2">
-            {STAGE_ORDER.map((s, i) => (
-              <div
-                key={s}
-                className="h-1.5 flex-1 rounded-full"
-                style={{
-                  backgroundColor:
-                    doneKeys.includes(s) || i <= stageIndex
-                      ? '#14263f'
-                      : '#d4c7a8',
-                }}
-              />
-            ))}
+    <div className="min-h-screen flex flex-col bg-canvas text-text-deep">
+      <header className="bg-raised border-b border-border-control flex-shrink-0">
+        <div className="max-w-[1400px] mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 text-text-secondary hover:text-primary">
+              <span className="w-8 h-8 rounded bg-raised border border-border-control flex items-center justify-center text-xs font-bold">
+                <span>&lt;</span>
+              </span>
+              <span className="hidden sm:inline">Matters</span>
+            </button>
+            <div className="flex items-center gap-2 text-xl font-bold text-primary tracking-tight">
+              <span className="w-8 h-8 rounded bg-primary flex items-center justify-center text-white font-bold text-lg">
+                LM
+              </span>
+              <span>LM Legal</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 text-sm">
+            <button className="btn btn-outline btn-sm">
+              Save draft
+            </button>
+            <button className="btn btn-primary btn-sm elevate">
+              Submit
+            </button>
           </div>
         </div>
+      </header>
 
-        {stage === 'brief' && <BriefStage data={data} onDone={nextStage} />}
-        {stage === 'documents' && (
-          <DocumentsStage
-            documents={documents}
-            openDoc={setOpenDoc}
-            openDocId={openDocId}
-            setOpenDocId={setOpenDocId}
-            onDone={nextStage}
-          />
-        )}
-        {stage === 'questions' && (
-          <QuestionsStage
-            questions={questions}
-            answers={answers}
-            onAnswer={(q: number, a: number) =>
-              setAnswers({ ...answers, ['q' + q]: a })
-            }
-          />
-        )}
-        {stage === 'decision' && (
-          <DecisionStage
-            options={decisionOptions}
-            decision={decision}
-            onDecision={(d: string) => {
-              setDecision(d);
-              nextStage();
-            }}
-          />
-        )}
-        {stage === 'draft' && (
-          <DraftStage
-            memo={memo}
-            onChange={setMemo}
-            wordCount={wordCount}
-            inRange={inRange}
-          />
-        )}
-        {stage === 'submit' && (
-          <SubmissionStage
-            decision={decision}
-            memo={memo}
-            wordCount={wordCount}
-            onSubmit={handleSubmit}
-          />
-        )}
-      </div>
-    </div>
-  );
-}
-
-function BriefStage({ data, onDone }: any) {
-  const [read, setRead] = useState(false);
-
-  const markDone = async () => {
-    await fetch('/api/matter/stage-done', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ stage: 'brief' }),
-    });
-    setRead(true);
-    onDone();
-  };
-
-  return (
-    <div className="page-enter animate-fade-in">
-      <h2 className="card-title">Stage 1 Read the brief</h2>
-      <p className="card-subtitle mb-4">
-        Read the client email before answering questions.
-      </p>
-      <div className="card mb-6 bg-beige-surface">
-        <div className="doc-card">
-          <div className="doc-icon">E</div>
-          <div>
-            <div className="doc-title">Client email unfair dismissal</div>
-            <div className="doc-meta">From Sarah Chen at Bright Retail Pty Ltd</div>
-          </div>
-        </div>
-        <p className="mt-4">
-          Dear Legal Team, We recently terminated the employment of Marcus Bell, a store
-          manager, following a restructuring process. Mr Bell believes the dismissal was
-          unfair and has lodged a claim with the CCMA. We need your advice on whether the
-          dismissal was procedurally fair and what exposure we face. Please review the
-          documents below and provide your assessment. Regards, Sarah Chen, HR Manager
-        </p>
-      </div>
-      <button
-        className="btn btn-primary mt-4 elevate"
-        disabled={read}
-        onClick={markDone}
-      >
-        {read ? 'Brief marked read' : 'Mark brief read'}
-      </button>
-    </div>
-  );
-}
-
-function DocumentsStage({
-  documents,
-  openDoc,
-  openDocId,
-  setOpenDocId,
-  onDone,
-}: any) {
-  const hasDocuments = documents && documents.length > 0;
-
-  return (
-    <div className="page-enter animate-fade-in">
-      <h2 className="card-title">Stage 2 Review the documents</h2>
-      <p className="card-subtitle mb-4">
-        Open each document to read its contents.
-      </p>
-      {hasDocuments ? (
-        <>
-          <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-            {documents.map((doc: any) => (
-              <div
-                key={doc.id}
-                className="doc-card cursor-pointer elevate card-lift p-4"
-                onClick={() => {
-                  openDoc(doc);
-                  setOpenDocId(doc.id);
-                }}
-              >
-                <div className="doc-icon">D</div>
-                <div>
-                  <div className="doc-title">{doc.title}</div>
-                  <div className="doc-meta">Document {doc.id}</div>
-                </div>
+      <main className="flex-1 max-w-[1400px] mx-auto px-4 py-6 page-enter animate-fade-in">
+        <div className="flex flex-col lg:flex-row gap-6">
+          <nav className="w-full lg:w-80 flex-shrink-0">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 rounded bg-raised border border-border-control flex items-center justify-center text-primary font-bold text-lg">
+                M
               </div>
-            ))}
-          </div>
-        </>
-      ) : (
-        <div className="card mb-6 bg-beige-surface p-6 text-center">
-          <div className="doc-icon text-4xl mb-3">D</div>
-          <p className="text-text-surface mb-4">No documents available for this task.</p>
-          <button
-            className="btn btn-primary elevate"
-            onClick={onDone}
-          >
-            Continue to next stage
-          </button>
-        </div>
-      )}
-      {openDocId && (
-        <div className="card mt-4">
-          <h3 className="card-title mb-2" style={{ fontSize: '16px' }}>
-            Document content
-          </h3>
-          <div className="mb-4 p-4 rounded bg-beige-surface border border-beige-border">
-            {openDoc.content || ''}
-          </div>
-          <button
-            className="btn btn-outline btn-sm"
-            onClick={() => setOpenDocId(null)}
-          >
-            Close document
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
+              <div>
+                <h3 className="text-title">{id ? `Matter ${id.toUpperCase()}` : 'Matter'}</h3>
+                <p className="text-caption-13 text-text-muted">Employment dispute - memo</p>
+              </div>
+            </div>
 
-function QuestionsStage({
-  questions,
-  answers,
-  onAnswer,
-}: any) {
-  return (
-    <div className="page-enter animate-fade-in">
-      <h2 className="card-title">Stage 3 Answer the questions</h2>
-      <p className="card-subtitle mb-4">
-        Select one answer for each question.
-      </p>
-      <div className="mb-4">
-        {questions.map((q: any, i: number) => (
-          <div key={i} className="question-block mb-3">
-            <div className="question-text">Q{i + 1}. {q.text}</div>
-            <div>
-              {q.options.map((opt: string, j: number) => (
-                <label key={j} className="choice-row block mb-2">
-                  <input
-                    type="radio"
-                    name={`q${i + 1}`}
-                    checked={answers[`q${i + 1}`] === j}
-                    onChange={() => onAnswer(i + 1, j)}
-                    className="mr-2 mt-0.5"
-                  />
-                  <span className="choice-label">{opt}</span>
-                </label>
+            <div className="space-y-1">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                    activeTab === tab.key
+                      ? 'bg-primary text-white shadow-shadow-md'
+                      : 'text-text-secondary hover:bg-raised hover:text-text-deep'
+                  }`}
+                >
+                  <span>{tab.label}</span>
+                  {tab.key === 'questions' && (
+                    <span className="w-5 h-5 rounded-full bg-error text-white text-[10px] flex items-center justify-center font-bold">2</span>
+                  )}
+                </button>
               ))}
             </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
-function DecisionStage({ options, decision, onDecision }: any) {
-  return (
-    <div className="page-enter animate-fade-in">
-      <h2 className="card-title">Stage 4 Decision point</h2>
-      <p className="card-subtitle mb-4">
-        Choose how to proceed. Your choice changes the follow-up email the client receives.
-      </p>
-      <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {options.map((opt: any) => (
-          <div
-            key={opt.id}
-            className={`decision-card cursor-pointer p-4 rounded-lg border ${decision === opt.id ? 'border-navy bg-gold-soft' : 'border-beige-border bg-beige-surface hover:bg-beige-soft elevate card-lift'}`}
-            onClick={() => onDecision(opt.id)}
-          >
-            <div className="decision-title font-bold">{opt.title}</div>
-            <div className="decision-desc text-sm text-text-muted mt-1">
-              {opt.desc}
-            </div>
-          </div>
-        ))}
-      </div>
-      {decision && (
-        <div className="mt-4 text-center">
-          <span className="badge badge-navy">Decision recorded</span>
-        </div>
-      )}
-    </div>
-  );
-}
+            {activeTab === 'documents' && (
+              <div className="mt-8 card">
+                <h4 className="text-body font-semibold mb-4">Documents</h4>
+                <ul className="space-y-2">
+                  {MATTER_DOCUMENTS.map((doc) => (
+                    <li key={doc.id} className="flex items-center justify-between p-2 rounded border border-border-control hover:bg-sunken transition-colors cursor-pointer">
+                      <div className="flex items-center gap-3">
+                        <span className="w-6 h-6 rounded bg-sunken flex items-center justify-center text-[10px] font-bold border border-border-control">
+                          {doc.type.toUpperCase()}
+                        </span>
+                        <span className="text-body truncate">{doc.name}</span>
+                      </div>
+                      <span className="text-caption-13 text-text-muted">{doc.size}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
-function DraftStage({ memo, onChange, wordCount, inRange }: any) {
-  return (
-    <div className="page-enter animate-fade-in">
-      <h2 className="card-title">Stage 5 Draft your memo</h2>
-      <p className="card-subtitle mb-4">
-        Write a legal memo of 300 to 500 words. Drafts autosave as you type.
-      </p>
-      <textarea
-        value={memo}
-        onChange={(e) => onChange(e.target.value)}
-        className="input w-full h-64 elevate card-lift"
-        placeholder="Start drafting your memo here…"
-      />
-      <div className="flex justify-between mt-2 text-xs text-text-muted">
-        <span>{wordCount} words</span>
-        <span className={inRange ? 'text-green-600' : 'text-red-600'}>
-          {inRange ? 'Within range' : 'Outside 300 to 500 words'}
-        </span>
-      </div>
-    </div>
-  );
-}
+            {activeTab === 'feedback' && (
+              <div className="mt-8 card">
+                <h4 className="text-body font-semibold mb-4">Your feedback</h4>
+                <div className="space-y-4">
+                  <div className="p-4 rounded bg-raised border border-border-control">
+                    <div className="flex justify-between mb-2">
+                      <span className="text-body font-semibold">Memo draft</span>
+                      <span className="badge badge-published">Published</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded bg-success text-white flex items-center justify-center text-xs font-bold">
+                        72
+                      </div>
+                      <p className="text-body">Rubric based score. Written comments below.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </nav>
 
-function SubmissionStage({ decision, memo, wordCount, onSubmit }: any) {
-  return (
-    <div className="page-enter animate-fade-in">
-      <h2 className="card-title">Stage 6 Submit</h2>
-      <p className="card-subtitle mb-4">
-        Review and submit your memo for marking.
-      </p>
-      <div className="mb-4">
-        <div className="mb-2">
-          <span className="text-text-muted">Decision</span>
-          <span className="badge badge-beige">{decision}</span>
+          <section className="flex-1 space-y-6">
+            {activeTab === 'brief' && (
+              <>
+                <div className="card">
+                  <h3 className="text-body font-semibold mb-4">Case brief</h3>
+                  <div className="prose text-body max-w-none">
+                    <p>
+                      Your client is a small business owner who received a letter from a former employee claiming unfair dismissal. The employee worked for eighteen months and was dismissed without a disciplinary hearing. Your client says the employee was underperforming but admits no formal process was followed.
+                    </p>
+                    <p>
+                      Prepare a memo of between two hundred and three hundred words that identifies the legal issues, explains the applicable law under the Labour Relations Act, and advises your client on the likely outcome if the matter proceeds to the CCMA.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="card">
+                  <h3 className="text-body font-semibold mb-4">Your answer</h3>
+                  <div className="relative">
+                    <textarea
+                      className="w-full min-h-[200px] px-4 py-3 text-body border border-border-control rounded-lg bg-sunken focus:outline-none focus:border-text-brass focus:ring-2 focus-ring resize-none"
+                      placeholder="Type your memo here..."
+                    ></textarea>
+                    <div className="absolute bottom-2 right-2 text-caption-13 text-text-muted">
+                      0 words
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button className="btn btn-secondary btn-lg elevate flex-1">
+                    Save draft
+                  </button>
+                  <button
+                    onClick={() => setShowSubmit(true)}
+                    className="btn btn-primary btn-lg elevate flex-1"
+                  >
+                    Submit
+                  </button>
+                </div>
+              </>
+            )}
+
+            {activeTab === 'questions' && (
+              <>
+                <h3 className="text-title mb-4">Questions</h3>
+                <div className="space-y-4">
+                  {MATTER_QUESTIONS.map((q) => (
+                    <div key={q.id} className="card">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <span className="text-caption-13 text-text-muted font-mono">{q.id.toUpperCase()}</span>
+                          <h4 className="text-body font-semibold">{q.text}</h4>
+                        </div>
+                        <span className="text-caption-13 text-text-muted font-mono">{q.words}</span>
+                      </div>
+                      <textarea
+                        className="w-full min-h-[120px] px-4 py-3 text-body border border-border-control rounded-lg bg-sunken focus:outline-none focus:border-text-brass focus:ring-2 focus-ring resize-none"
+                        placeholder="Type your answer here..."
+                      ></textarea>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-3 mt-4">
+                  <button className="btn btn-secondary btn-lg elevate flex-1">
+                    Save all answers
+                  </button>
+                  <button
+                    onClick={() => setShowSubmit(true)}
+                    className="btn btn-primary btn-lg elevate flex-1"
+                  >
+                    Submit all answers
+                  </button>
+                </div>
+              </>
+            )}
+
+            {activeTab === 'documents' && (
+              <div>
+                <h3 className="text-title mb-4">Case documents</h3>
+                <div className="grid md:grid-cols-2 gap-4">
+                  {MATTER_DOCUMENTS.map((doc) => (
+                    <div key={doc.id} className="card cursor-pointer hover:border-primary transition-colors">
+                      <div className="flex items-center gap-3 mb-4">
+                        <span className="w-8 h-8 rounded bg-raised border border-border-control flex items-center justify-center text-[10px] font-bold border">
+                          {doc.type.toUpperCase()}
+                        </span>
+                        <span className="text-body font-semibold">{doc.name}</span>
+                      </div>
+                      <p className="text-caption-13 text-text-muted mb-4">{doc.size}</p>
+                      <button className="btn btn-outline btn-sm w-full">
+                        Open document
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'feedback' && (
+              <div>
+                <h3 className="text-title mb-4">Marker feedback</h3>
+                <div className="space-y-4">
+                  <div className="card">
+                    <div className="flex justify-between mb-4">
+                      <div>
+                        <h4 className="text-body font-semibold">Memo draft</h4>
+                        <p className="text-caption-13 text-text-muted">Submitted Fri 7 Jun 2024</p>
+                      </div>
+                      <span className="badge badge-published">Published</span>
+                    </div>
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="w-16 h-16 rounded bg-success text-white flex items-center justify-center text-2xl font-bold">
+                        72
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-body font-semibold">Rubric based score</p>
+                        <p className="text-caption-13 text-text-muted">Scored against the marking rubric for this task.</p>
+                      </div>
+                    </div>
+                    <div className="p-4 rounded bg-raised border border-border-control">
+                      <p className="text-body mb-4">
+                        Well structured memo with clear identification of the legal issues. Your application of the Labour Relations Act is sound. Consider addressing the procedural fairness requirements in more detail in future submissions.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
         </div>
-        <div className="mb-2">
-          <span className="text-text-muted">Word count</span>
-          <span>{wordCount} words</span>
+      </main>
+
+      <footer className="border-t border-border-control bg-raised py-8 flex-shrink-0">
+        <div className="max-w-[1400px] mx-auto px-4 text-center">
+          <p className="text-caption-13 text-text-muted">LM Legal built for South African law graduates</p>
         </div>
-        <div className="mb-4 p-4 rounded bg-beige-surface border border-beige-border">
-          {memo || '(no memo drafted)'}
-        </div>
-      </div>
-      <button
-        className="btn btn-primary btn-full w-full mt-4 elevate"
-        onClick={onSubmit}
-      >
-        Submit for marking
-      </button>
+      </footer>
     </div>
   );
 }
