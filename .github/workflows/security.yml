@@ -28,19 +28,19 @@ jobs:
 
       - name: Install server dependencies
         run: npm ci
-        working-directory: /home/user/lm-legal-mvp/server
+        working-directory: server
 
       - name: Install client dependencies
         run: npm ci
-        working-directory: /home/user/lm-legal-mvp/client
+        working-directory: client
 
       - name: Run server audit (moderate+)
         run: npm audit --audit-level=moderate --json > server-audit.json || true
-        working-directory: /home/user/lm-legal-mvp/server
+        working-directory: server
 
       - name: Run client audit (moderate+)
         run: npm audit --audit-level=moderate --json > client-audit.json || true
-        working-directory: /home/user/lm-legal-mvp/client
+        working-directory: client
 
       - name: Upload audit results
         uses: actions/upload-artifact@v4
@@ -51,6 +51,7 @@ jobs:
           retention-days: 30
 
       - name: Fail on critical vulnerabilities
+        working-directory: .
         run: |
           if [ -f server-audit.json ]; then
             CRITICAL=$(node -e "const a=require('./server-audit.json'); console.log(a.metadata.vulnerabilities.critical||0)")
@@ -76,7 +77,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Scan for exposed secrets
-        uses: trufflesecurity/trufflehog@v3
+        uses: trufflesecurity/trufflehog@main
         with:
           path: ./
           only-verified: false

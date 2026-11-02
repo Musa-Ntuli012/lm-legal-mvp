@@ -41,31 +41,31 @@ jobs:
 
       - name: Install root dependencies
         run: npm ci
-        working-directory: /home/user/lm-legal-mvp
+        working-directory: .
 
       - name: Install server dependencies
         run: npm ci
-        working-directory: /home/user/lm-legal-mvp/server
+        working-directory: server
 
       - name: Install client dependencies
         run: npm ci
-        working-directory: /home/user/lm-legal-mvp/client
+        working-directory: client
 
       - name: Run server lint
         run: npm run lint
-        working-directory: /home/user/lm-legal-mvp/server
+        working-directory: server
 
       - name: Run client lint
         run: npm run lint
-        working-directory: /home/user/lm-legal-mvp/client
+        working-directory: client
 
       - name: Run server typecheck
         run: npm run typecheck
-        working-directory: /home/user/lm-legal-mvp/server
+        working-directory: server
 
       - name: Run client typecheck
         run: npm run typecheck
-        working-directory: /home/user/lm-legal-mvp/client
+        working-directory: client
 
   test:
     name: Test
@@ -97,37 +97,37 @@ jobs:
 
       - name: Install root dependencies
         run: npm ci
-        working-directory: /home/user/lm-legal-mvp
+        working-directory: .
 
       - name: Install server dependencies
         run: npm ci
-        working-directory: /home/user/lm-legal-mvp/server
+        working-directory: server
 
       - name: Install client dependencies
         run: npm ci
-        working-directory: /home/user/lm-legal-mvp/client
+        working-directory: client
 
       - name: Generate Prisma client
         run: npx prisma generate
-        working-directory: /home/user/lm-legal-mvp/server
+        working-directory: server
 
       - name: Run Prisma migrations
         run: npx prisma migrate deploy
-        working-directory: /home/user/lm-legal-mvp/server
+        working-directory: server
         env:
           DATABASE_URL: postgres://lmlegal:lmlegal_pass@localhost:5432/lmlegal_test
 
       - name: Seed database
         run: npm run seed
-        working-directory: /home/user/lm-legal-mvp/server
+        working-directory: server
 
       - name: Run server tests
         run: npm run test
-        working-directory: /home/user/lm-legal-mvp/server
+        working-directory: server
 
       - name: Run client tests
         run: npm run test
-        working-directory: /home/user/lm-legal-mvp/client
+        working-directory: client
 
   build:
     name: Build
@@ -146,27 +146,27 @@ jobs:
 
       - name: Install root dependencies
         run: npm ci
-        working-directory: /home/user/lm-legal-mvp
+        working-directory: .
 
       - name: Install server dependencies
         run: npm ci
-        working-directory: /home/user/lm-legal-mvp/server
+        working-directory: server
 
       - name: Install client dependencies
         run: npm ci
-        working-directory: /home/user/lm-legal-mvp/client
+        working-directory: client
 
       - name: Generate Prisma client
         run: npx prisma generate
-        working-directory: /home/user/lm-legal-mvp/server
+        working-directory: server
 
       - name: Build server
         run: npm run build
-        working-directory: /home/user/lm-legal-mvp/server
+        working-directory: server
 
       - name: Build client
         run: npm run build
-        working-directory: /home/user/lm-legal-mvp/client
+        working-directory: client
 
   security-scan:
     name: Security Scan
@@ -185,24 +185,24 @@ jobs:
 
       - name: Install root dependencies
         run: npm ci
-        working-directory: /home/user/lm-legal-mvp
+        working-directory: .
 
       - name: Install server dependencies
         run: npm ci
-        working-directory: /home/user/lm-legal-mvp/server
+        working-directory: server
 
       - name: Install client dependencies
         run: npm ci
-        working-directory: /home/user/lm-legal-mvp/client
+        working-directory: client
 
       - name: Run server audit
         run: npm audit --audit-level=moderate
-        working-directory: /home/user/lm-legal-mvp/server
+        working-directory: server
         continue-on-error: true
 
       - name: Run client audit
         run: npm audit --audit-level=moderate
-        working-directory: /home/user/lm-legal-mvp/client
+        working-directory: client
         continue-on-error: true
 
       - name: Upload SARIF report
