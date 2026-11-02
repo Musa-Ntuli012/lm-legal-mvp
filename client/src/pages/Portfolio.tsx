@@ -1,141 +1,108 @@
-import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 
-interface ProgressRecord {
-  id: string;
-  status: string;
-  mark: number | null;
-  task: {
-    id: string;
-    title: string;
-    practiceArea: string;
-    status: string;
-    releaseAt: string | null;
-    deadlineAt: string | null;
-  };
-  submission: {
-    id: string;
-    status: string;
-    submittedAt: string | null;
-    late: boolean;
-    wordCount: number;
-  } | null;
-}
+const SUBMISSIONS = [
+  { id: '1', title: 'Memo draft - Employment dispute', date: 'Fri 7 Jun 2024', score: 72, maxScore: 100, rubric: 'Published' },
+  { id: '2', title: 'Contract review brief', date: 'Fri 31 May 2024', score: 58, maxScore: 100, rubric: 'Published' },
+  { id: '3', title: 'Constitutional law problem', date: 'Fri 24 May 2024', score: null, maxScore: 100, rubric: 'Pending' },
+  { id: '4', title: 'Property law memo', date: 'Fri 17 May 2024', score: 81, maxScore: 100, rubric: 'Published' },
+  { id: '5', title: 'Delict problem question', date: 'Fri 10 May 2024', score: 67, maxScore: 100, rubric: 'Published' },
+];
 
 export function Portfolio() {
-  const [progress, setProgress] = useState<ProgressRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetch('/api/progress')
-      .then((r) => r.json())
-      .then((data) => {
-        setProgress(data.progress || []);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, []);
-
-  const statusLabels: Record<string, string> = {
-    AVAILABLE: 'Available',
-    STARTED: 'Started',
-    SUBMITTED: 'Submitted',
-    LATE: 'Late',
-    MARKED: 'Marked',
-    RELEASED: 'Released',
-  };
-
-  const statusColors: Record<string, string> = {
-    AVAILABLE: 'badge-beige',
-    STARTED: 'badge-beige',
-    SUBMITTED: 'badge-navy',
-    LATE: 'badge badge-danger',
-    MARKED: 'badge badge-gold',
-    RELEASED: 'badge badge-navy',
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-beige-bg">
-        <div className="animate-pulse rounded-full h-8 w-8 bg-navy"></div>
-      </div>
-    );
-  }
+  const average = SUBMISSIONS.filter(s => s.score !== null).reduce((acc, s) => acc + (s.score || 0), 0) / SUBMISSIONS.filter(s => s.score !== null).length;
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="mb-8">
-        <h1 className="card-title">Your portfolio</h1>
-        <p className="card-subtitle">
-          All your simulated legal work is labelled for learning purposes.
-        </p>
-      </div>
+    <div className="min-h-screen flex flex-col bg-canvas text-text-deep">
+      <header className="bg-raised border-b border-border-control flex-shrink-0">
+        <div className="max-w-[1400px] mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button className="flex items-center gap-2 text-text-secondary hover:text-primary">
+              <span className="w-8 h-8 rounded bg-raised border border-border-control flex items-center justify-center text-xs font-bold">
+                <span>&lt;</span>
+              </span>
+              <span className="hidden sm:inline">Dashboard</span>
+            </button>
+            <div className="flex items-center gap-2 text-xl font-bold text-primary tracking-tight">
+              <span className="w-8 h-8 rounded bg-primary flex items-center justify-center text-white font-bold text-lg">
+                LM
+              </span>
+              <span>LM Legal</span>
+            </div>
+          </div>
+          <div className="text-sm text-text-secondary">
+            Progress and portfolio
+          </div>
+        </div>
+      </header>
 
-      <div className="card">
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-beige-border">
-              <th className="pb-3 text-text-muted">Task</th>
-              <th className="pb-3 text-text-muted">Practice area</th>
-              <th className="pb-3 text-text-muted">Status</th>
-              <th className="pb-3 text-text-muted">Mark</th>
-              <th className="pb-3 text-text-muted">Submitted</th>
-            </tr>
-          </thead>
-          <tbody>
-            {progress.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="py-8 text-center text-text-muted">
-                  No tasks yet. Check your dashboard for available tasks.
-                </td>
-              </tr>
-            ) : (
-              progress.map((p) => (
-                <tr key={p.id} className="border-b border-beige-border last:border-0">
-                  <td className="py-3">
-                    <NavLink
-                      to="/matter"
-                      className="text-navy font-medium hover:underline"
-                    >
-                      {p.task.title}
-                    </NavLink>
-                  </td>
-                  <td className="py-3 text-text-surface">{p.task.practiceArea}</td>
-                  <td className="py-3">
-                    <span className={`badge ${statusColors[p.status]}`}>
-                      {statusLabels[p.status] || p.status}
-                    </span>
-                  </td>
-                  <td className="py-3">
-                    {p.mark !== null ? (
-                      <span className="font-mono text-navy font-bold">
-                        {p.mark}
-                      </span>
-                    ) : (
-                      <span className="text-text-muted">Not available</span>
-                    )}
-                  </td>
-                  <td className="py-3 text-text-surface">
-                    {p.submission?.submittedAt ? (
-                      <span>{new Date(p.submission.submittedAt).toLocaleDateString('en-ZA')}</span>
-                    ) : (
-                      <span className="text-text-muted">Not available</span>
-                    )}
-                  </td>
+      <main className="flex-1 max-w-[1400px] mx-auto px-4 py-6 page-enter animate-fade-in">
+        <h2 className="text-title mb-8">Your progress</h2>
+
+        <div className="grid lg:grid-cols-3 gap-8 mb-8">
+          <div className="card">
+            <p className="text-caption-13 text-text-muted">Average score</p>
+            <div className="text-4xl font-bold text-primary mt-2">{average.toFixed(0)}</div>
+            <p className="text-caption-13 text-text-muted mt-2">out of 100</p>
+          </div>
+          <div className="card">
+            <p className="text-caption-13 text-text-muted">Matters submitted</p>
+            <div className="text-4xl font-bold text-primary mt-2">{SUBMISSIONS.length}</div>
+            <p className="text-caption-13 text-text-muted mt-2">this period</p>
+          </div>
+          <div className="card">
+            <p className="text-caption-13 text-text-muted">Pending marks</p>
+            <div className="text-4xl font-bold text-primary mt-2">1</div>
+            <p className="text-caption-13 text-text-muted mt-2">awaiting feedback</p>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="flex justify-between items-end mb-6">
+            <div>
+              <h3 className="text-body font-semibold">Submission history</h3>
+              <p className="text-caption-13 text-text-muted">All your marked work</p>
+            </div>
+            <NavLink to="/export" className="text-xs text-primary hover:text-primary font-medium underline underline-offset-2">
+              Export portfolio
+            </NavLink>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-border-control">
+                  <th className="pb-3 text-caption-13 text-text-secondary font-semibold">Task</th>
+                  <th className="pb-3 text-caption-13 text-text-secondary font-semibold">Date</th>
+                  <th className="pb-3 text-caption-13 text-text-secondary font-semibold">Score</th>
+                  <th className="pb-3 text-caption-13 text-text-secondary font-semibold">Status</th>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+              </thead>
+              <tbody>
+                {SUBMISSIONS.map((s) => (
+                  <tr key={s.id} className="border-b border-border-control hover:bg-raised transition-colors">
+                    <td className="py-4 text-body">{s.title}</td>
+                    <td className="py-4 text-body font-mono">{s.date}</td>
+                    <td className="py-4 text-body font-mono">
+                      {s.score !== null ? `${s.score} / ${s.maxScore}` : '—'}
+                    </td>
+                    <td className="py-4">
+                      <span className={`badge ${s.rubric === 'Published' ? 'badge-published' : s.rubric === 'Pending' ? 'badge-draft' : 'badge-needs-attention'}`}>
+                        {s.rubric}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </main>
 
-      <div className="mt-8 p-4 rounded-lg border border-beige-border bg-beige-soft">
-        <p className="text-sm text-text-muted">
-          <strong>Simulated work notice:</strong> All tasks, submissions, marks and
-          feedback in this portfolio are part of a legal simulation for training
-          purposes. They do not constitute legal advice and are not real case work.
-        </p>
-      </div>
+      <footer className="border-t border-border-control bg-raised py-8 flex-shrink-0">
+        <div className="max-w-[1400px] mx-auto px-4 text-center">
+          <p className="text-caption-13 text-text-muted">LM Legal built for South African law graduates</p>
+        </div>
+      </footer>
     </div>
   );
 }

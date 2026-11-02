@@ -1,68 +1,55 @@
+import { NavLink } from 'react-router-dom';
+
 export function TermsPage() {
   return (
-    <div className="max-w-3xl mx-auto">
-      <div className="card">
-        <h1 className="card-title">Terms of Use</h1>
-        <p className="card-subtitle mb-6">
-          Last updated 1 November 2026
-        </p>
-
-        <div className="prose-lg text-text-deep">
-          <h2>1. Acceptance of terms</h2>
-          <p>
-            By accessing and using LM Legal, you accept these terms of use. If you
-            do not agree, you may not use the service.
-          </p>
-
-          <h2>2. Simulated work</h2>
-          <p>
-            All tasks, documents, submissions, marks and feedback on LM Legal are
-            part of a legal training simulation. They do not constitute legal
-            advice and do not create an attorney-client relationship.
-          </p>
-
-          <h2>3. User accounts</h2>
-          <p>
-            Access is by invitation only. You are responsible for keeping your
-            account credentials confidential and for all activity under your
-            account.
-          </p>
-
-          <h2>4. Data and privacy</h2>
-          <p>
-            Your personal data is processed in accordance with our Privacy Notice
-            and applicable data protection law, including POPIA. You may request
-            access to or deletion of your data through the administrator.
-          </p>
-
-          <h2>5. Conduct</h2>
-          <p>
-            You must not attempt to access other users' submissions, reverse
-            engineer the service, or use automated means to interact with the
-            API. Violations may result in immediate suspension.
-          </p>
-
-          <h2>6. Limitation of liability</h2>
-          <p>
-            LM Legal is provided as-is for training purposes. To the extent
-            permitted by law, we disclaim all warranties and liability arising
-            from your use of the service.
-          </p>
-
-          <h2>7. Changes to terms</h2>
-          <p>
-            We may update these terms from time to time. Continued use of the
-            service after changes are posted constitutes acceptance of the new
-            terms.
-          </p>
+    <div className="min-h-screen flex flex-col bg-canvas text-text-deep">
+      <header className="bg-raised border-b border-border-control flex-shrink-0">
+        <div className="max-w-[1400px] mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button className="flex items-center gap-2 text-text-secondary hover:text-primary">
+              <span className="w-8 h-8 rounded bg-raised border border-border-control flex items-center justify-center text-xs font-bold">
+                <span>&lt;</span>
+              </span>
+              <span className="hidden sm:inline">Back</span>
+            </button>
+            <div className="flex items-center gap-2 text-xl font-bold text-primary tracking-tight">
+              <span className="w-8 h-8 rounded bg-primary flex items-center justify-center text-white font-bold text-lg">
+                LM
+              </span>
+              <span>LM Legal</span>
+            </div>
+          </div>
+          <div className="text-sm text-text-secondary">
+            Terms
+          </div>
         </div>
+      </header>
 
-        <div className="mt-8 pt-4 border-t border-beige-border text-center">
-          <p className="text-xs text-text-muted">
-            Questions about these terms? Contact your LM Legal administrator.
-          </p>
+      <main className="flex-1 max-w-2xl mx-auto px-4 py-6 page-enter animate-fade-in">
+        <div className="card">
+          <div className="mb-6">
+            <h1 className="text-title mb-2">Terms of use</h1>
+            <p className="text-body text-text-secondary">Terms for using this service.</p>
+          </div>
+          <div className="mt-6 space-y-4">
+            <p className="text-body">
+              This is a demonstration application for practical legal training. By using this service you agree to the terms below.
+            </p>
+            <p className="text-body">
+              You may not use this service for any unlawful purpose. You must not upload content that you do not have the right to share.
+            </p>
+            <p className="text-body">
+              The service is provided as is without warranty of any kind. The operators are not liable for any damages arising from use of the service.
+            </p>
+          </div>
         </div>
-      </div>
+      </main>
+
+      <footer className="border-t border-border-control bg-raised py-8 flex-shrink-0">
+        <div className="max-w-[1400px] mx-auto px-4 text-center">
+          <p className="text-caption-13 text-text-muted">LM Legal built for South African law graduates</p>
+        </div>
+      </footer>
     </div>
   );
 }

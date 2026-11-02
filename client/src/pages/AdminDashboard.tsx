@@ -1,108 +1,97 @@
-import { useState, useEffect } from 'react';
+import { NavLink } from 'react-router-dom';
+
+const STATS = [
+  { label: 'Active students', value: '142', change: '+12 this month' },
+  { label: 'Matters submitted', value: '890', change: '+34 this week' },
+  { label: 'Pending marks', value: '23', change: '3 overdue' },
+  { label: 'Active markers', value: '8', change: 'All active' },
+];
+
+const RECENT_ACTIVITY = [
+  { actor: 'A. Nkosi', action: 'submitted Employment dispute memo', time: '2 hours ago' },
+  { actor: 'B. van der Merwe', action: 'submitted Contract review brief', time: '5 hours ago' },
+  { actor: 'C. Dlamini', action: 'received feedback on Constitutional law problem', time: '1 day ago' },
+  { actor: 'D. Botha', action: 'submitted Property law memo', time: '2 days ago' },
+];
 
 export function AdminDashboard() {
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [markerEmail, setMarkerEmail] = useState('');
-  const [markerName, setMarkerName] = useState('');
-  const [creating, setCreating] = useState(false);
-
-  useEffect(() => {
-    fetch('/api/admin/overview')
-      .then((r) => r.json())
-      .then((d) => { setData(d); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, []);
-
-  const handleCreateMarker = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setCreating(true);
-    try {
-      const res = await fetch('/api/auth/invite', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: markerEmail, name: markerName, csrf_token: '' }),
-      });
-      if (res.ok) {
-        setMarkerEmail('');
-        setMarkerName('');
-        // Refresh overview
-        fetch('/api/admin/overview').then((r) => r.json()).then(setData);
-      } else {
-        alert('Create failed');
-      }
-    } catch (err) {
-      alert('Create failed');
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  if (loading) return <div className="text-center py-20">Loading…</div>;
-
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="card-title">Admin</h1>
-        <span className="badge badge-navy">Administrator</span>
-      </div>
-
-      <div className="card mb-6">
-        <h2 className="card-title mb-4">Create marker account</h2>
-        <form onSubmit={handleCreateMarker} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="label">Investor's email</label>
-            <input
-              type="email"
-              value={markerEmail}
-              onChange={(e) => setMarkerEmail(e.target.value)}
-              required
-              className="input"
-            />
+    <div className="min-h-screen flex flex-col bg-canvas text-text-deep">
+      <header className="bg-raised border-b border-border-control flex-shrink-0">
+        <div className="max-w-[1400px] mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xl font-bold text-primary tracking-tight">
+            <span className="w-8 h-8 rounded bg-primary flex items-center justify-center text-white font-bold text-lg">
+              LM
+            </span>
+            <span>LM Legal</span>
           </div>
-          <div>
-            <label className="label">Investor's name</label>
-            <input
-              type="text"
-              value={markerName}
-              onChange={(e) => setMarkerName(e.target.value)}
-              required
-              className="input"
-            />
-          </div>
-          <td colSpan={2}>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={creating}
-            >
-              {creating ? 'Creating…' : 'Create account'}
+          <div className="flex items-center gap-4 text-sm">
+            <span className="hidden sm:inline text-text-secondary">Administrator overview</span>
+            <button className="btn btn-primary btn-sm elevate">
+              Admin profile
             </button>
-          </td>
-        </form>
-      </div>
-
-      <div className="card">
-        <h2 className="card-title mb-4">Cohort overview</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="p-4 rounded bg-beige-surface border border-beige-border">
-            <div className="text-text-muted text-sm">Total students</div>
-            <div className="text-2xl font-bold">{data?.totalStudents || 0}</div>
-          </div>
-          <div className="p-4 rounded bg-beige-surface border border-beige-border">
-            <div className="text-text-muted text-sm">Active</div>
-            <div className="text-2xl font-bold">{data?.activeStudents || 0}</div>
-          </div>
-          <div className="p-4 rounded bg-beige-surface border border-beige-border">
-            <div className="text-text-muted text-sm">Pending submissions</div>
-            <div className="text-2xl font-bold">{data?.pendingSubmissions || 0}</div>
-          </div>
-          <div className="p-4 rounded bg-beige-surface border border-beige-border">
-            <div className="text-text-muted text-sm">Marked</div>
-            <div className="text-2xl font-bold">{data?.markedSubmissions || 0}</div>
           </div>
         </div>
-      </div>
+      </header>
+
+      <main className="flex-1 max-w-[1400px] mx-auto px-4 py-6 page-enter animate-fade-in">
+        <h2 className="text-title mb-8">Administrator overview</h2>
+
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {STATS.map((stat) => (
+            <div key={stat.label} className="card">
+              <div className="flex justify-between items-start mb-2">
+                <p className="text-caption-13 text-text-muted">{stat.label}</p>
+                <span className="text-caption-13 text-text-secondary">{stat.change}</span>
+              </div>
+              <div className="text-3xl font-bold text-primary">{stat.value}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid lg:grid-cols-2 gap-8">
+          <div className="card">
+            <h3 className="text-body font-semibold mb-4">Recent activity</h3>
+            <div className="space-y-4">
+              {RECENT_ACTIVITY.map((activity) => (
+                <div key={activity.actor} className="flex items-start gap-3 border-b border-border-control pb-3 last:border-0">
+                  <div className="w-8 h-8 rounded bg-raised border border-border-control flex items-center justify-center text-[10px] font-bold flex-shrink-0">
+                    {activity.actor.charAt(0)}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-body">{activity.actor} {activity.action}</p>
+                    <p className="text-caption-13 text-text-muted">{activity.time}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="card">
+            <h3 className="text-body font-semibold mb-4">Quick actions</h3>
+            <div className="space-y-3">
+              <NavLink to="/admin/users" className="btn btn-secondary btn-full text-left justify-start py-3">
+                Manage users and invites
+              </NavLink>
+              <NavLink to="/admin/tasks" className="btn btn-secondary btn-full text-left justify-start py-3">
+                Task builder
+              </NavLink>
+              <NavLink to="/admin/audit" className="btn btn-secondary btn-full text-left justify-start py-3">
+                View audit log
+              </NavLink>
+              <button className="btn btn-secondary btn-full text-left justify-start py-3">
+                Export reports
+              </button>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <footer className="border-t border-border-control bg-raised py-8 flex-shrink-0">
+        <div className="max-w-[1400px] mx-auto px-4 text-center">
+          <p className="text-caption-13 text-text-muted">LM Legal built for South African law graduates</p>
+        </div>
+      </footer>
     </div>
   );
 }

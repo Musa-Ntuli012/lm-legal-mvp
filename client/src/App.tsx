@@ -1,22 +1,32 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useState, useEffect, useCallback } from 'react';
 import { Layout } from './components/Layout';
+import { LandingPage } from './pages/LandingPage';
 import { SignInPage } from './pages/SignInPage';
 import { SignUpPage } from './pages/SignUpPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
+import { VerifyEmailPage } from './pages/VerifyEmailPage';
 import { Dashboard } from './pages/Dashboard';
 import { Matter } from './pages/Matter';
 import { Feedback } from './pages/Feedback';
+import { Portfolio } from './pages/Portfolio';
+import { NotificationsPage } from './pages/NotificationsPage';
+import { AccountPage } from './pages/AccountPage';
+import { MembershipInactivePage } from './pages/MembershipInactivePage';
 import { MarkerDashboard } from './pages/MarkerDashboard';
 import { MarkerReview } from './pages/MarkerReview';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { AdminAudit } from './pages/AdminAudit';
-import { PrivacyPage } from './pages/PrivacyPage';
-import { MembershipInactivePage } from './pages/MembershipInactivePage';
+import { UsersAndInvitesPage } from './pages/UsersAndInvitesPage';
 import { TaskBuilder } from './pages/TaskBuilder';
-import { Portfolio } from './pages/Portfolio';
+import { PrivacyPage } from './pages/PrivacyPage';
 import { TermsPage } from './pages/TermsPage';
 import { CookiePage } from './pages/CookiePage';
+import { NotFoundPage } from './pages/NotFoundPage';
+import { ErrorPage } from './pages/ErrorPage';
 import { useAuth } from './hooks/useAuth';
+
 export default function App() {
   const { user, loading, csrfToken, refreshSession } = useAuth();
 
@@ -26,8 +36,8 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-beige-bg">
-        <div className="animate-pulse rounded-full h-8 w-8 bg-navy"></div>
+      <div className="flex items-center justify-center min-h-screen bg-canvas">
+        <div className="animate-pulse rounded-full h-8 w-8 bg-primary"></div>
       </div>
     );
   }
@@ -36,23 +46,29 @@ export default function App() {
     <BrowserRouter>
       <Layout user={user} csrfToken={csrfToken}>
         <Routes>
-          <Route path="/" element={<Navigate to="/signin" replace />} />
+          <Route path="/" element={<LandingPage />} />
           <Route path="/signin" element={<SignInPage />} />
           <Route path="/signup" element={<SignUpPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/membership-inactive" element={<MembershipInactivePage />} />
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/matter" element={<Matter />} />
+          <Route path="/matter/:id?" element={<Matter />} />
           <Route path="/feedback" element={<Feedback />} />
+          <Route path="/portfolio" element={<Portfolio />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="/account" element={<AccountPage />} />
           <Route path="/marker/dashboard" element={<MarkerDashboard />} />
           <Route path="/marker/review/:id" element={<MarkerReview />} />
           <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/users" element={<UsersAndInvitesPage />} />
           <Route path="/admin/audit" element={<AdminAudit />} />
-          <Route path="/admin/task-builder/:taskId" element={<TaskBuilder />} />
-          <Route path="/admin/task-builder" element={<TaskBuilder />} />
-          <Route path="/portfolio" element={<Portfolio />} />
+          <Route path="/admin/task-builder/:taskId?" element={<TaskBuilder />} />
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/cookies" element={<CookiePage />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Layout>
     </BrowserRouter>
