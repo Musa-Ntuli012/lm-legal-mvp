@@ -35,7 +35,7 @@ async function main() {
     parallelism: 4,
   });
 
-  const marker = await prisma.profile.upsert({
+  const _marker = await prisma.profile.upsert({
     where: { email: 'investor@lmlegal.demo' },
     update: {},
     create: {
@@ -55,7 +55,7 @@ async function main() {
     parallelism: 4,
   });
 
-  const student = await prisma.profile.upsert({
+  const _student = await prisma.profile.upsert({
     where: { email: 'student@lmlegal.demo' },
     update: {},
     create: {

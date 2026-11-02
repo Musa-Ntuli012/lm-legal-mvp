@@ -2,37 +2,51 @@ import { Request, Response, NextFunction } from 'express';
 import rateLimit from 'express-rate-limit';
 
 /**
- * In-memory store for connection tracking.
+ * In-memory store for per-IP request counts.
  * Production deployments should use Redis-backed stores.
  */
 const connectionCounts = new Map<string, { count: number; resetTime: number }>();
 
-const MAX_CONNECTIONS_PER_IP = 100;
-const CONNECTION_WINDOW_MS = 60 * 1000; // 1 minute
+const MAX_REQUESTS_PER_IP = 100;
+const REQUEST_WINDOW_MS = 60 * 1000; // 1 minute
 
 /**
- * Tracks concurrent connections per IP for basic DDoS mitigation.
- * Returns 429 if an IP exceeds the connection threshold.
+ * Removes expired entries from the connection store on a timer so the map
+ * does not grow unbounded.
  */
-export function connectionThrottle(
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of connectionCounts.entries()) {
+    if (now > entry.resetTime) {
+      connectionCounts.delete(key);
+    }
+  }
+}, 5 * 60 * 1000); // every 5 minutes
+
+/**
+ * Tracks requests per IP for basic rate limiting.
+ * Returns 429 if an IP exceeds the request threshold within the window.
+ * This is a request cap, not a concurrent-connection tracker.
+ */
+export function requestThrottle(
   req: Request,
   res: Response,
   next: NextFunction
 ): void | Response {
   const ip = req.ip || req.socket.remoteAddress || 'unknown';
-  const key = `conn:${ip}`;
+  const key = `req:${ip}`;
   const now = Date.now();
 
   const entry = connectionCounts.get(key);
 
   if (!entry || now > entry.resetTime) {
-    connectionCounts.set(key, { count: 1, resetTime: now + CONNECTION_WINDOW_MS });
+    connectionCounts.set(key, { count: 1, resetTime: now + REQUEST_WINDOW_MS });
     return next();
   }
 
-  if (entry.count >= MAX_CONNECTIONS_PER_IP) {
+  if (entry.count >= MAX_REQUESTS_PER_IP) {
     return res.status(429).json({
-      error: 'too_many_connections',
+      error: 'too_many_requests',
       retryAfter: Math.ceil((entry.resetTime - now) / 1000),
     });
   }
@@ -41,17 +55,30 @@ export function connectionThrottle(
   next();
 }
 
-/**
- * Progressive delay middleware (express-slow-down equivalent).
- * Adds increasing response delay based on request frequency from an IP.
- * Helps mitigate brute-force and DDoS attacks without blocking legitimate users.
- */
 const slowDownStore = new Map<string, { count: number; resetTime: number }>();
 
 const SLOW_DOWN_WINDOW_MS = 60 * 1000; // 1 minute
 const SLOW_DOWN_MAX = 50; // requests per window before delaying
 const SLOW_DOWN_DELAY_MS = 500; // base delay per request over threshold
+const MAX_DELAY_MS = 30000; // cap total delay at 30 seconds
 
+/**
+ * Removes expired entries from the slow-down store on a timer.
+ */
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of slowDownStore.entries()) {
+    if (now > entry.resetTime) {
+      slowDownStore.delete(key);
+    }
+  }
+}, 5 * 60 * 1000); // every 5 minutes
+
+/**
+ * Progressive delay middleware. Adds an increasing response delay based on
+ * request frequency from an IP. Helps mitigate brute-force and DDoS attacks
+ * without blocking legitimate users outright.
+ */
 export function slowDown(
   req: Request,
   _res: Response,
@@ -72,11 +99,10 @@ export function slowDown(
 
   if (entry.count > SLOW_DOWN_MAX) {
     const over = entry.count - SLOW_DOWN_MAX;
-    const delay = over * SLOW_DOWN_DELAY_MS;
-    // Add delay header so clients can adapt
-    // The actual delay is applied by setting a response header that
-    // downstream proxies can honor, or we set a short setTimeout.
-    // Here we simply record it; the response is not blocked.
+    const delay = Math.min(over * SLOW_DOWN_DELAY_MS, MAX_DELAY_MS);
+    // Apply the computed delay before proceeding
+    setTimeout(() => next(), delay);
+    return;
   }
 
   next();

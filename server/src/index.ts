@@ -1,7 +1,6 @@
 import express from 'express';
 import http from 'http';
 import cors from 'cors';
-import hpp from 'hpp';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { authenticate, requireMembership } from './middleware/auth';
@@ -17,7 +16,7 @@ import { requestLogger } from './middleware/requestLogger';
 import { sanitizeInput, detectSuspiciousRequest } from './middleware/sanitize';
 import { securityHeaders, secureCookieDefaults } from './middleware/securityHeaders';
 import {
-  connectionThrottle,
+  requestThrottle,
   slowDown,
   apiRateLimit,
 } from './middleware/ddos';
@@ -26,14 +25,27 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // ============================================
-// Security middleware - applied BEFORE all other middleware
+// Security middleware - applied before routes
 // ============================================
 
 // Detect suspicious requests (scanners, path traversal, attack patterns)
 app.use(detectSuspiciousRequest);
 
-// DDoS connection throttling per IP
-app.use(connectionThrottle);
+// CORS before per-IP rate limiters so preflight requests are handled early
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',')
+  : ['http://localhost:5173'];
+
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true,
+}));
+
+// Trust proxy so req.ip reflects the real client behind a reverse proxy
+app.set('trust proxy', 1);
+
+// Per-IP request cap (renamed from connectionThrottle - it is a request cap)
+app.use(requestThrottle);
 
 // Progressive slow-down for repeated requests
 app.use(slowDown);
@@ -51,23 +63,14 @@ app.use(secureCookieDefaults);
 app.use(helmet());
 app.use(helmet.crossOriginResourcePolicy({ policy: 'cross-origin' }));
 
-// CORS - restricted to known origins in production
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',')
-  : ['http://localhost:5173'];
-
-app.use(cors({
-  origin: allowedOrigins,
-  credentials: true,
-}));
-
-// HTTP Parameter Pollution protection
-app.use(hpp());
-
 // Body parsing with strict size limits to prevent payload attacks
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(cookieParser());
+
+// HTTP Parameter Pollution protection - mounted after body parsers so it
+// can normalize parsed req.body for both JSON and form-encoded requests
+app.use(require('hpp')());
 
 // Input sanitization - must run after body parsing
 app.use(sanitizeInput);

@@ -2,13 +2,13 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, development]
   pull_request:
-    branches: [main, develop]
+    branches: [main, development]
 
 env:
   NODE_ENV: test
-  DATABASE_URL: postgres://lmlegal:lmlegal_pass@localhost:5432/lmlegal_test
+  DATABASE_URL: file:./dev.db
   APP_URL: http://localhost:5173
 
 jobs:
@@ -32,6 +32,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -88,6 +90,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -115,7 +119,7 @@ jobs:
         run: npx prisma migrate deploy
         working-directory: server
         env:
-          DATABASE_URL: postgres://lmlegal:lmlegal_pass@localhost:5432/lmlegal_test
+          DATABASE_URL: file:./dev.db
 
       - name: Seed database
         run: npm run seed
@@ -137,6 +141,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -176,6 +182,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -203,8 +211,4 @@ jobs:
       - name: Run client audit
         run: npm audit --audit-level=moderate
         working-directory: client
-        continue-on-error: true
-
-      - name: Upload SARIF report
-        uses: github/codeql-action/upload-sarif@v3
         continue-on-error: true

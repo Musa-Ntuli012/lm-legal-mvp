@@ -1,6 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 
 /**
+ * Field names that must never be rewritten. Passwords are verified against a
+ * stored hash; stripping characters such as ; or -- before comparison breaks
+ * existing passwords and can lock users out of their accounts.
+ */
+const SENSITIVE_FIELDS = new Set(['password', 'passwordHash', 'newPassword', 'confirmPassword', 'currentPassword']);
+
+/**
  * Dangerous patterns that indicate injection or XSS attempts.
  * These are checked in raw request bodies and query parameters.
  */
@@ -19,8 +26,6 @@ const DANGEROUS_PATTERNS = [
   /drop\s+table/gi,
   /delete\s+from/gi,
   /insert\s+into/gi,
-  /--/g,
-  /;/g,
   /\bexec\s*\(/gi,
   /\bchar\s*\(/gi,
   /\bcast\s*\(/gi,
@@ -29,10 +34,15 @@ const DANGEROUS_PATTERNS = [
 
 /**
  * Recursively sanitize a value, removing dangerous HTML/script patterns
- * from strings and walking into objects and arrays.
+ * from strings and walking into objects and arrays. Sensitive fields
+ * (passwords) are returned untouched.
  */
-function sanitizeValue(value: unknown): unknown {
+function sanitizeValue(value: unknown, key?: string): unknown {
   if (typeof value === 'string') {
+    // Never rewrite sensitive fields such as passwords
+    if (key && SENSITIVE_FIELDS.has(key.toLowerCase())) {
+      return value;
+    }
     let sanitized = value;
     for (const pattern of DANGEROUS_PATTERNS) {
       sanitized = sanitized.replace(pattern, '');
@@ -43,13 +53,13 @@ function sanitizeValue(value: unknown): unknown {
   }
 
   if (Array.isArray(value)) {
-    return value.map(sanitizeValue);
+    return value.map((v, i) => sanitizeValue(v, String(i)));
   }
 
   if (value !== null && typeof value === 'object') {
     const sanitizedObj: Record<string, unknown> = {};
-    for (const [key, val] of Object.entries(value)) {
-      sanitizedObj[key] = sanitizeValue(val);
+    for (const [k, val] of Object.entries(value)) {
+      sanitizedObj[k] = sanitizeValue(val, k);
     }
     return sanitizedObj;
   }
@@ -81,7 +91,8 @@ export function sanitizeInput(
 
 /**
  * Middleware that checks for suspicious request patterns
- * and returns 400 if detected (before sanitization, for logging).
+ * and logs them (before sanitization). Does not block - rate limiting
+ * handles repeated offenders.
  */
 export function detectSuspiciousRequest(
   req: Request,
@@ -134,7 +145,6 @@ export function detectSuspiciousRequest(
   }
 
   if (suspiciousHeaders.length > 0) {
-    // Log but don't block - let rate limiting handle repeated offenders
     console.warn('Suspicious request detected:', {
       ip: req.ip,
       path: req.path,

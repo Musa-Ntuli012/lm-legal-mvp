@@ -4,9 +4,9 @@ on:
   schedule:
     - cron: '0 2 * * 1'  # Weekly on Mondays at 02:00 UTC
   push:
-    branches: [main]
+    branches: [main, development]
   pull_request:
-    branches: [main]
+    branches: [main, development]
 
 env:
   NODE_ENV: production
@@ -19,6 +19,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -42,6 +44,9 @@ jobs:
         run: npm audit --audit-level=moderate --json > client-audit.json || true
         working-directory: client
 
+      - name: Run root audit (includes devDependencies)
+        run: npm audit --audit-level=moderate --json > root-audit.json || true
+
       - name: Upload audit results
         uses: actions/upload-artifact@v4
         with:
@@ -51,22 +56,16 @@ jobs:
           retention-days: 30
 
       - name: Fail on critical vulnerabilities
-        working-directory: .
         run: |
-          if [ -f server-audit.json ]; then
-            CRITICAL=$(node -e "const a=require('./server-audit.json'); console.log(a.metadata.vulnerabilities.critical||0)")
-            if [ "$CRITICAL" -gt 0 ]; then
-              echo "::error::Critical vulnerabilities found in server dependencies"
-              exit 1
+          for f in server-audit.json client-audit.json root-audit.json; do
+            if [ -f "$f" ]; then
+              CRITICAL=$(node -e "const a=require('./$f'); console.log(a.metadata.vulnerabilities.critical||0)")
+              if [ "$CRITICAL" -gt 0 ]; then
+                echo "::error::Critical vulnerabilities found in $f"
+                exit 1
+              fi
             fi
-          fi
-          if [ -f client-audit.json ]; then
-            CRITICAL=$(node -e "const a=require('./client-audit.json'); console.log(a.metadata.vulnerabilities.critical||0)")
-            if [ "$CRITICAL" -gt 0 ]; then
-              echo "::error::Critical vulnerabilities found in client dependencies"
-              exit 1
-            fi
-          fi
+          done
 
   secret-scan:
     name: Secret Scan
@@ -75,6 +74,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Scan for exposed secrets
         uses: trufflesecurity/trufflehog@main
@@ -90,6 +91,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Review dependency changes
         uses: actions/dependency-review-action@v3

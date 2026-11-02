@@ -1,5 +1,3 @@
-import { prisma } from '../db';
-
 /**
  * Email service for LM Legal MVP.
  *
