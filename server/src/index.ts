@@ -1,6 +1,7 @@
 import express from 'express';
 import http from 'http';
 import cors from 'cors';
+import hpp from 'hpp';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { authenticate, requireMembership } from './middleware/auth';
@@ -13,11 +14,40 @@ import progressRoutes from './routes/progress';
 import adminRoutes from './routes/admin';
 import { errorHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
+import { sanitizeInput, detectSuspiciousRequest } from './middleware/sanitize';
+import { securityHeaders, secureCookieDefaults } from './middleware/securityHeaders';
+import {
+  connectionThrottle,
+  slowDown,
+  apiRateLimit,
+} from './middleware/ddos';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Security headers
+// ============================================
+// Security middleware - applied BEFORE all other middleware
+// ============================================
+
+// Detect suspicious requests (scanners, path traversal, attack patterns)
+app.use(detectSuspiciousRequest);
+
+// DDoS connection throttling per IP
+app.use(connectionThrottle);
+
+// Progressive slow-down for repeated requests
+app.use(slowDown);
+
+// General API rate limiting
+app.use('/api', apiRateLimit);
+
+// Security headers (CSP, HSTS, X-Frame-Options, etc.)
+app.use(securityHeaders);
+
+// Secure cookie defaults (httpOnly, sameSite, secure)
+app.use(secureCookieDefaults);
+
+// Helmet for additional security headers
 app.use(helmet());
 app.use(helmet.crossOriginResourcePolicy({ policy: 'cross-origin' }));
 
@@ -31,15 +61,21 @@ app.use(cors({
   credentials: true,
 }));
 
-// Body parsing
+// HTTP Parameter Pollution protection
+app.use(hpp());
+
+// Body parsing with strict size limits to prevent payload attacks
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(cookieParser());
 
+// Input sanitization - must run after body parsing
+app.use(sanitizeInput);
+
 // Request logging
 app.use(requestLogger);
 
-// Health check
+// Health check (no auth required)
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
