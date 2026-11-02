@@ -1,5 +1,4 @@
 import { Request, Response, NextFunction } from 'express';
-import rateLimit from 'express-rate-limit';
 
 // In-memory store for development - production should use Redis or database
 const requestCounts = new Map<string, { count: number; resetTime: number }>();

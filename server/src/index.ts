@@ -13,15 +13,25 @@ import progressRoutes from './routes/progress';
 import adminRoutes from './routes/admin';
 import { errorHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
+import { sanitizeInput, detectSuspiciousRequest } from './middleware/sanitize';
+import { securityHeaders, secureCookieDefaults } from './middleware/securityHeaders';
+import {
+  requestThrottle,
+  slowDown,
+  apiRateLimit,
+} from './middleware/ddos';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Security headers
-app.use(helmet());
-app.use(helmet.crossOriginResourcePolicy({ policy: 'cross-origin' }));
+// ============================================
+// Security middleware - applied before routes
+// ============================================
 
-// CORS - restricted to known origins in production
+// Detect suspicious requests (scanners, path traversal, attack patterns)
+app.use(detectSuspiciousRequest);
+
+// CORS before per-IP rate limiters so preflight requests are handled early
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',')
   : ['http://localhost:5173'];
@@ -31,15 +41,44 @@ app.use(cors({
   credentials: true,
 }));
 
-// Body parsing
+// Trust proxy so req.ip reflects the real client behind a reverse proxy
+app.set('trust proxy', 1);
+
+// Per-IP request cap (renamed from connectionThrottle - it is a request cap)
+app.use(requestThrottle);
+
+// Progressive slow-down for repeated requests
+app.use(slowDown);
+
+// General API rate limiting
+app.use('/api', apiRateLimit);
+
+// Security headers (CSP, HSTS, X-Frame-Options, etc.)
+app.use(securityHeaders);
+
+// Secure cookie defaults (httpOnly, sameSite, secure)
+app.use(secureCookieDefaults);
+
+// Helmet for additional security headers
+app.use(helmet());
+app.use(helmet.crossOriginResourcePolicy({ policy: 'cross-origin' }));
+
+// Body parsing with strict size limits to prevent payload attacks
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(cookieParser());
 
+// HTTP Parameter Pollution protection - mounted after body parsers so it
+// can normalize parsed req.body for both JSON and form-encoded requests
+app.use(require('hpp')());
+
+// Input sanitization - must run after body parsing
+app.use(sanitizeInput);
+
 // Request logging
 app.use(requestLogger);
 
-// Health check
+// Health check (no auth required)
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });

@@ -11,9 +11,10 @@ import {
   requestEmailVerification,
   confirmEmailVerification,
 } from '../services/authService';
-import { authenticate, requireRoles, requireMembership } from '../middleware/auth';
+import { authenticate, requireRoles } from '../middleware/auth';
 import { csrfProtection } from '../middleware/csrf';
 import { signInRateLimit } from '../middleware/rateLimit';
+import { inviteRateLimit } from '../middleware/ddos';
 import { z } from 'zod';
 
 const router = Router();
@@ -109,14 +110,13 @@ router.post('/sign-up', csrfProtection, async (req, res) => {
 });
 
 // POST /api/auth/sign-out - Sign out
-router.post('/sign-out', authenticate, csrfProtection, async (req, res) => {
-  const token = req.cookies?.lm_session;
-  await signOut(res, req.profile?.id);
+router.post('/sign-out', authenticate, csrfProtection, async (_req, res) => {
+  await signOut(res, _req.profile?.id);
   res.json({ ok: true });
 });
 
 // POST /api/auth/invite - Create invitation (admin only)
-router.post('/invite', authenticate, requireRoles('ADMINISTRATOR', 'OWNER'), csrfProtection, async (req, res) => {
+router.post('/invite', authenticate, requireRoles('ADMINISTRATOR', 'OWNER'), inviteRateLimit, csrfProtection, async (req, res) => {
   const parsed = inviteSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: 'invalid_invitation' });

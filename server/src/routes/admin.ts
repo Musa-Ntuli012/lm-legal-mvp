@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { authenticate, requireRoles, requireMembership } from '../middleware/auth';
-import { csrfProtection } from '../middleware/csrf';
 import { prisma } from '../db';
 
 const router = Router();

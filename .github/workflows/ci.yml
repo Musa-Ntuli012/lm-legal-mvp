@@ -1,0 +1,214 @@
+name: CI
+
+on:
+  push:
+    branches: [main, development]
+  pull_request:
+    branches: [main, development]
+
+env:
+  NODE_ENV: test
+  DATABASE_URL: file:./dev.db
+  APP_URL: http://localhost:5173
+
+jobs:
+  lint-and-typecheck:
+    name: Lint & Typecheck
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: lmlegal
+          POSTGRES_PASSWORD: lmlegal_pass
+          POSTGRES_DB: lmlegal_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd="pg_isready -U lmlegal -d lmlegal_test"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install root dependencies
+        run: npm ci
+        working-directory: .
+
+      - name: Install server dependencies
+        run: npm ci
+        working-directory: server
+
+      - name: Install client dependencies
+        run: npm ci
+        working-directory: client
+
+      - name: Run server lint
+        run: npm run lint
+        working-directory: server
+
+      - name: Run client lint
+        run: npm run lint
+        working-directory: client
+
+      - name: Run server typecheck
+        run: npm run typecheck
+        working-directory: server
+
+      - name: Run client typecheck
+        run: npm run typecheck
+        working-directory: client
+
+  test:
+    name: Test
+    needs: lint-and-typecheck
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: lmlegal
+          POSTGRES_PASSWORD: lmlegal_pass
+          POSTGRES_DB: lmlegal_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd="pg_isready -U lmlegal -d lmlegal_test"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install root dependencies
+        run: npm ci
+        working-directory: .
+
+      - name: Install server dependencies
+        run: npm ci
+        working-directory: server
+
+      - name: Install client dependencies
+        run: npm ci
+        working-directory: client
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+        working-directory: server
+
+      - name: Run Prisma migrations
+        run: npx prisma migrate deploy
+        working-directory: server
+        env:
+          DATABASE_URL: file:./dev.db
+
+      - name: Seed database
+        run: npm run seed
+        working-directory: server
+
+      - name: Run server tests
+        run: npm run test
+        working-directory: server
+
+      - name: Run client tests
+        run: npm run test
+        working-directory: client
+
+  build:
+    name: Build
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install root dependencies
+        run: npm ci
+        working-directory: .
+
+      - name: Install server dependencies
+        run: npm ci
+        working-directory: server
+
+      - name: Install client dependencies
+        run: npm ci
+        working-directory: client
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+        working-directory: server
+
+      - name: Build server
+        run: npm run build
+        working-directory: server
+
+      - name: Build client
+        run: npm run build
+        working-directory: client
+
+  security-scan:
+    name: Security Scan
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install root dependencies
+        run: npm ci
+        working-directory: .
+
+      - name: Install server dependencies
+        run: npm ci
+        working-directory: server
+
+      - name: Install client dependencies
+        run: npm ci
+        working-directory: client
+
+      - name: Run server audit
+        run: npm audit --audit-level=moderate
+        working-directory: server
+        continue-on-error: true
+
+      - name: Run client audit
+        run: npm audit --audit-level=moderate
+        working-directory: client
+        continue-on-error: true

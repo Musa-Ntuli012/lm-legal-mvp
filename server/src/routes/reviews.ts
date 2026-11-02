@@ -40,7 +40,7 @@ router.get('/queue', authenticate, requireRoles('MARKER', 'ADMINISTRATOR', 'OWNE
 
   // Alias profiles for blind marking
   const aliased = blindMarking
-    ? submissions.map((s, i) => ({
+    ? submissions.map((s: any, i: number) => ({
         ...s,
         profile: {
           ...s.profile,

@@ -1,0 +1,98 @@
+name: Security Scan
+
+on:
+  schedule:
+    - cron: '0 2 * * 1'  # Weekly on Mondays at 02:00 UTC
+  push:
+    branches: [main, development]
+  pull_request:
+    branches: [main, development]
+
+env:
+  NODE_ENV: production
+
+jobs:
+  dependency-audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install server dependencies
+        run: npm ci
+        working-directory: server
+
+      - name: Install client dependencies
+        run: npm ci
+        working-directory: client
+
+      - name: Run server audit (moderate+)
+        run: npm audit --audit-level=moderate --json > server-audit.json || true
+        working-directory: server
+
+      - name: Run client audit (moderate+)
+        run: npm audit --audit-level=moderate --json > client-audit.json || true
+        working-directory: client
+
+      - name: Run root audit (includes devDependencies)
+        run: npm audit --audit-level=moderate --json > root-audit.json || true
+
+      - name: Upload audit results
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-audit-results
+          path: |
+            *-audit.json
+          retention-days: 30
+
+      - name: Fail on critical vulnerabilities
+        run: |
+          for f in server-audit.json client-audit.json root-audit.json; do
+            if [ -f "$f" ]; then
+              CRITICAL=$(node -e "const a=require('./$f'); console.log(a.metadata.vulnerabilities.critical||0)")
+              if [ "$CRITICAL" -gt 0 ]; then
+                echo "::error::Critical vulnerabilities found in $f"
+                exit 1
+              fi
+            fi
+          done
+
+  secret-scan:
+    name: Secret Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Scan for exposed secrets
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          only-verified: false
+
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@v3
