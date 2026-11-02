@@ -1,0 +1,369 @@
+// LM Legal MVP Database Schema
+// SQLite for local development, PostgreSQL for production (South African region)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// ACCESS & ACCOUNTS (Epic AC)
+// ============================================================
+
+model Profile {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  passwordHash      String
+  displayName       String
+  role              String   @default("STUDENT") // STUDENT, MARKER, ADMINISTRATOR, OWNER
+  membershipStatus  String   @default("ACTIVE") // ACTIVE, INACTIVE, UNKNOWN
+  emailVerified     Boolean  @default(false)
+  emailVerifiedAt   DateTime?
+  
+  // Two-factor
+  totpSecret    String?
+  totpEnabled   Boolean  @default(false)
+  
+  // Timestamps
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  lastSignInAt  DateTime?
+  
+  // Relations
+  sessions          Session[]
+  invitations       Invitation[]
+  submissions       Submission[]
+  reviews           Review[]
+  auditLog          AuditLog[]
+  progress          Progress[]
+  passwordResets    PasswordReset[]
+  emailVerifications EmailVerification[]
+  dataRequests  DataRequest[]
+  tasks         Task[]
+  
+  @@index([email])
+  @@index([role])
+  @@index([membershipStatus])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  token        String   @unique
+  profileId    String
+  csrfToken    String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  lastActiveAt DateTime @default(now())
+  ipAddress    String?
+  userAgent    String?
+  
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  
+  @@index([token])
+  @@index([profileId])
+  @@index([expiresAt])
+}
+
+model Invitation {
+  id          String   @id @default(cuid())
+  email       String
+  token       String   @unique
+  invitedById String
+  role        String   @default("STUDENT")
+  expiresAt   DateTime
+  usedAt      DateTime?
+  used        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  
+  invitedBy Profile @relation(fields: [invitedById], references: [id])
+  
+  @@index([token])
+  @@index([email])
+  @@index([expiresAt])
+}
+
+model DataRequest {
+  id          String   @id @default(cuid())
+  profileId   String
+  type        String   // EXPORT or DELETE
+  status      String   @default("PENDING") // PENDING, COMPLETED, REJECTED
+  requestedAt DateTime @default(now())
+  completedAt DateTime?
+  notes       String?
+  
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  
+  @@index([profileId])
+  @@index([status])
+}
+
+// ============================================================
+// TASK ENGINE (Epic TK)
+// ============================================================
+
+model Task {
+  id                String      @id @default(cuid())
+  title             String
+  practiceArea      String
+  description       String?
+  status            String      @default("DRAFT") // DRAFT, SCHEDULED, PUBLISHED, CLOSED, ARCHIVED
+  releaseAt         DateTime?
+  deadlineAt        DateTime?
+  lateAcceptance    Boolean     @default(false)
+  resubmissionAllowed Boolean   @default(false)
+  timeLimitMinutes  Int?
+  blindMarking      Boolean     @default(false)
+
+  // Metadata
+  learningObjectives String?   // JSON
+  skills             String?   // JSON
+  difficulty         String?   // easy, medium, hard
+  theme              String?
+  currentAffairsTags String?   // JSON
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  closedAt    DateTime?
+  archivedAt  DateTime?
+  
+  // Relations
+  versions    TaskVersion[]
+  submissions Submission[]
+  blocks      Block[]
+  rubric      Rubric?
+  modelAnswer ModelAnswer?
+  creatorId   String
+  creator     Profile   @relation(fields: [creatorId], references: [id])
+  progress    Progress[] @relation("ProgressToTask")
+  
+  @@index([status])
+  @@index([releaseAt])
+  @@index([deadlineAt])
+  @@index([creatorId])
+}
+
+model TaskVersion {
+  id        String   @id @default(cuid())
+  taskId    String
+  version   Int
+  blocks    String   // JSON array of blocks
+  rubric    String?  // JSON
+  modelAnswer String?
+  isCurrent Boolean  @default(false)
+  
+  createdAt DateTime @default(now())
+  createdBy String
+  
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  
+  @@index([taskId])
+  @@index([isCurrent])
+  @@unique([taskId, version])
+  
+  submissions Submission[]
+}
+
+// ============================================================
+// TASK BUILDER (Epic BL)
+// ============================================================
+
+model Block {
+  id          String   @id @default(cuid())
+  taskId      String
+  type        String   // SCENARIO, EMAIL, DOCUMENT, QUESTION, DECISION, DRAFTING, SUBMISSION
+  title       String?
+  content     String?   // JSON or text
+  order       Int
+  config      String?   // JSON block-specific config
+  
+  // Decision branching
+  branches    String?   // JSON: { optionId: targetBlockId }
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  
+  @@index([taskId])
+  @@index([order])
+}
+
+// ============================================================
+// RUBRICS & MODEL ANSWERS
+// ============================================================
+
+model Rubric {
+  id        String   @id @default(cuid())
+  taskId    String   @unique
+  criteria  String   // JSON array of {id, name, weight, levelDescriptions}
+  maxScore  Int
+  
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model ModelAnswer {
+  id          String   @id @default(cuid())
+  taskId      String   @unique
+  content     String   // formatted text
+  explanation String?
+  authorities String?  // JSON array
+  files       String?  // JSON array of file references
+  releaseRule String   @default("AFTER_SUBMISSION") // AFTER_SUBMISSION, AFTER_DEADLINE, MANUAL, AFTER_FEEDBACK_PUBLISHED
+  releasedAt  DateTime?
+  
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  
+  @@index([releaseRule])
+}
+
+// ============================================================
+// SUBMISSIONS (Epic SB)
+// ============================================================
+
+model Submission {
+  id          String   @id @default(cuid())
+  taskId      String
+  profileId   String
+  taskVersionId String // points to the version answered
+  
+  memo        String?
+  decision    String?
+  wordCount   Int      @default(0)
+  late        Boolean  @default(false)
+  submittedAt DateTime?
+  status      String   @default("DRAFT") // DRAFT, SUBMITTED, MARKED
+  
+  // File uploads (post-MVP)
+  files       String?   // JSON array
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  task     Task    @relation(fields: [taskId], references: [id])
+  profile Profile @relation(fields: [profileId], references: [id])
+  version TaskVersion @relation(fields: [taskVersionId], references: [id])
+  
+  review    Review?
+  progress  Progress[]
+  
+  @@index([taskId])
+  @@index([profileId])
+  @@index([status])
+  @@index([submittedAt])
+  @@index([late])
+}
+
+// ============================================================
+// MARKING & FEEDBACK (Epic MK)
+// ============================================================
+
+model Review {
+  id          String   @id @default(cuid())
+  submissionId String  @unique
+  profileId    String  // marker
+  total       Int?
+  feedback    String?
+  scores      String?   // JSON array of {criterionId, score, comment}
+  status      String   @default("DRAFT") // DRAFT, PUBLISHED
+  reviewTimeMinutes Int?
+  startedAt   DateTime?
+  publishedAt DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  profile  Profile @relation(fields: [profileId], references: [id])
+  
+  @@index([submissionId])
+  @@index([profileId])
+  @@index([status])
+}
+
+// ============================================================
+// PROGRESS & PORTFOLIO (Epic PR)
+// ============================================================
+
+model Progress {
+  id          String   @id @default(cuid())
+  profileId   String
+  taskId      String
+  submissionId String?
+  
+  startedAt   DateTime?
+  submittedAt DateTime?
+  markedAt    DateTime?
+  releasedAt  DateTime?
+  
+  status      String   @default("AVAILABLE") // AVAILABLE, STARTED, SUBMITTED, LATE, MARKED, RELEASED
+  mark        Int?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  task    Task    @relation("ProgressToTask", fields: [taskId], references: [id])
+  submission Submission? @relation(fields: [submissionId], references: [id])
+  
+  @@index([profileId])
+  @@index([taskId])
+  @@index([status])
+  @@unique([profileId, taskId])
+}
+
+// ============================================================
+// ADMINISTRATION & AUDIT (Epic AD)
+// ============================================================
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  profileId String?
+  action    String
+  target    String?
+  detail    String?
+  createdAt DateTime @default(now())
+  ipAddress String?
+
+  profile Profile? @relation(fields: [profileId], references: [id])
+
+  @@index([profileId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// ============================================================
+// ACCESS & ACCOUNTS (Epic AC)
+// ============================================================
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  profileId String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  profile Profile @relation(fields: [profileId], references: [id])
+
+  @@index([token])
+  @@index([expiresAt])
+}
+
+model EmailVerification {
+  id        String   @id @default(cuid())
+  profileId String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  profile Profile @relation(fields: [profileId], references: [id])
+
+  @@index([token])
+  @@index([expiresAt])
+}

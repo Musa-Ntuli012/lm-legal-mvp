@@ -1,0 +1,28 @@
+{
+  "name": "lm-legal-mvp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LM Legal MVP — student legal simulation with human marker feedback loop",
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace=server\" \"npm run dev --workspace=client\"",
+    "dev:server": "npm run dev --workspace=server",
+    "dev:client": "npm run dev --workspace=client",
+    "build": "npm run build --workspace=server && npm run build --workspace=client",
+    "seed": "node --workspace=server ./src/seed.js",
+    "studio": "prisma studio --workspace=server",
+    "test": "npm run test --workspace=server && npm run test --workspace=client",
+    "lint": "npm run lint --workspace=server && npm run lint --workspace=client",
+    "typecheck": "tsc --noEmit --workspace=server && tsc --noEmit --workspace=client"
+  },
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
