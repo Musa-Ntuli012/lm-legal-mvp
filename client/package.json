@@ -7,8 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run --emptyExitCode",
-    "lint": "eslint src",
+    "test": "vitest run",
+    "lint": "eslint src --ext .ts,.tsx",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

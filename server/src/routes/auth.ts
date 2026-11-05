@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import crypto from 'crypto';
 import {
   signIn,
   signUp,
@@ -85,24 +84,6 @@ router.get('/session', authenticate, async (req, res) => {
   }
 
   res.json(session);
-});
-
-// ============================================
-// GET /api/auth/csrf-token - Anonymous CSRF token
-// ============================================
-
-/**
- * GET /api/auth/csrf-token
- * No authentication required.
- *
- * Issues a fresh CSRF token for anonymous clients before sign-in.
- * Without this, sign-in and sign-up cannot succeed in production because
- * csrfProtection requires a non-empty token on POST requests.
- */
-router.get('/csrf-token', async (_req, res) => {
-  const token = crypto.randomBytes(16).toString('hex');
-  res.setHeader('X-CSRF-Token', token);
-  res.json({ csrf_token: token });
 });
 
 // ============================================
@@ -252,8 +233,8 @@ router.post('/password-reset-request', csrfProtection, async (req, res) => {
     return res.status(400).json({ error: 'invalid_email' });
   }
 
-  await requestPasswordReset(parsed.data.email);
-  res.json({ ok: true });
+  const result = await requestPasswordReset(parsed.data.email);
+  res.json({ ok: true, emailSent: result.emailSent });
 });
 
 /**
@@ -292,8 +273,8 @@ router.post('/email-verification-request', csrfProtection, async (req, res) => {
     return res.status(400).json({ error: 'invalid_email' });
   }
 
-  await requestEmailVerification(parsed.data.email);
-  res.json({ ok: true });
+  const result = await requestEmailVerification(parsed.data.email);
+  res.json({ ok: true, emailSent: result.emailSent });
 });
 
 /**

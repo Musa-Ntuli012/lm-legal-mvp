@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { NavLink, useParams, useNavigate } from 'react-router-dom';
 
 const RUBRIC_ITEMS = [
   { id: 'r1', criterion: 'Identifies legal issues', maxScore: 30, score: 25, comment: 'Clear identification of the main issues.' },
@@ -8,8 +8,8 @@ const RUBRIC_ITEMS = [
 ];
 
 export function MarkerReview() {
-  const { id: _id } = useParams();
-  const _navigate = useNavigate();
+  const { id } = useParams();
+  const navigate = useNavigate();
   const [showCalibration, setShowCalibration] = useState(false);
 
   const totalScore = RUBRIC_ITEMS.reduce((acc, r) => acc + r.score, 0);

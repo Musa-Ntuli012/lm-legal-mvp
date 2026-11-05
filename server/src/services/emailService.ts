@@ -17,26 +17,15 @@ let transporter: Transporter | null = null;
 
 function getTransporter(): Transporter | null {
   if (!transporter && process.env.SMTP_HOST) {
-    const transportConfig: {
-      host: string;
-      port: number;
-      secure: boolean;
-      auth?: { user: string; pass: string };
-    } = {
+    transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: parseInt(process.env.SMTP_PORT || '587', 10),
       secure: process.env.SMTP_PORT === '465',
-    };
-
-    // Only include auth credentials when SMTP_USER is set.
-    if (process.env.SMTP_USER) {
-      transportConfig.auth = {
+      auth: {
         user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS ?? '',
-      };
-    }
-
-    transporter = nodemailer.createTransport(transportConfig);
+        pass: process.env.SMTP_PASS,
+      },
+    });
   }
   return transporter;
 }
@@ -111,30 +100,6 @@ export function emailVerificationEmail(to: string, name: string, verifyUrl: stri
 }
 
 /**
- * Feedback published email content.
- *
- * @param to - Recipient email.
- * @param name - Recipient's display name.
- * @param taskTitle - Title of the marked task.
- * @param totalScore - The total score awarded.
- * @param maxScore - The maximum possible score.
- * @returns Email options for sendEmail.
- */
-export function feedbackPublishedEmail(
-  to: string,
-  name: string,
-  taskTitle: string,
-  totalScore: number,
-  maxScore: number
-) {
-  return {
-    to,
-    subject: `Feedback published: ${taskTitle}`,
-    text: `Hi ${name},\n\nYour submission for "${taskTitle}" has been marked.\n\nYour score: ${totalScore} / ${maxScore}.\n\nLog in to view your detailed feedback.\n\n— The LM Legal team`,
-  };
-}
-
-/**
  * Submission confirmation email content.
  *
  * @param to - Recipient email.
@@ -151,20 +116,9 @@ export function submissionConfirmationEmail(
   submittedAt: Date,
   late: boolean
 ) {
-  const submittedAtSA = submittedAt.toLocaleString('en-ZA', {
-    timeZone: 'Africa/Johannesburg',
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZoneName: 'short',
-  });
-
   return {
     to,
     subject: `Submission received: ${taskTitle}`,
-    text: `Hi ${name},\n\nWe received your submission for "${taskTitle}" on ${submittedAtSA} (South African time).\n${late ? 'Note: This submission was submitted after the deadline.' : ''}\n\nYou will receive feedback from your marker once it has been reviewed.\n\n— The LM Legal team`,
+    text: `Hi ${name},\n\nWe received your submission for "${taskTitle}" on ${submittedAt.toLocaleString()}.\n${late ? 'Note: This submission was submitted after the deadline.' : ''}\n\nYou will receive feedback from your marker once it has been reviewed.\n\n— The LM Legal team`,
   };
 }

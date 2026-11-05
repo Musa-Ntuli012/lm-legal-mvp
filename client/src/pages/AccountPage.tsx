@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 
 export function AccountPage() {
-  const _navigate = useNavigate();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('profile');
 
   const tabs = [
