@@ -111,6 +111,30 @@ export function emailVerificationEmail(to: string, name: string, verifyUrl: stri
 }
 
 /**
+ * Feedback published email content.
+ *
+ * @param to - Recipient email.
+ * @param name - Recipient's display name.
+ * @param taskTitle - Title of the marked task.
+ * @param totalScore - The total score awarded.
+ * @param maxScore - The maximum possible score.
+ * @returns Email options for sendEmail.
+ */
+export function feedbackPublishedEmail(
+  to: string,
+  name: string,
+  taskTitle: string,
+  totalScore: number,
+  maxScore: number
+) {
+  return {
+    to,
+    subject: `Feedback published: ${taskTitle}`,
+    text: `Hi ${name},\n\nYour submission for "${taskTitle}" has been marked.\n\nYour score: ${totalScore} / ${maxScore}.\n\nLog in to view your detailed feedback.\n\n— The LM Legal team`,
+  };
+}
+
+/**
  * Submission confirmation email content.
  *
  * @param to - Recipient email.

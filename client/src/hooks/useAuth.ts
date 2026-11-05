@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { API_BASE } from '../services/api';
 
 interface Profile {
   id: string;
@@ -47,7 +48,7 @@ export function useAuth() {
    */
   const refreshSession = useCallback(async () => {
     try {
-      const response = await fetch('/api/auth/session', {
+      const response = await fetch(`${API_BASE}/api/auth/session`, {
         method: 'GET',
         credentials: 'include', // include cookies
         headers: {
@@ -80,7 +81,7 @@ export function useAuth() {
    */
   const signOut = useCallback(async () => {
     try {
-      const response = await fetch('/api/auth/sign-out', {
+      const response = await fetch(`${API_BASE}/api/auth/sign-out`, {
         method: 'POST',
         credentials: 'include',
         headers: {

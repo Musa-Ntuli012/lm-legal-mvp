@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import crypto from 'crypto';
 import {
   signIn,
   signUp,
@@ -12,7 +13,7 @@ import {
   confirmEmailVerification,
 } from '../services/authService';
 import { authenticate, requireRoles } from '../middleware/auth';
-import { csrfProtection, generateCsrfToken } from '../middleware/csrf';
+import { csrfProtection } from '../middleware/csrf';
 import { signInRateLimit } from '../middleware/rateLimit';
 import { inviteRateLimit } from '../middleware/ddos';
 import { z } from 'zod';
@@ -98,8 +99,9 @@ router.get('/session', authenticate, async (req, res) => {
  * Without this, sign-in and sign-up cannot succeed in production because
  * csrfProtection requires a non-empty token on POST requests.
  */
-router.get('/csrf-token', generateCsrfToken, async (_req, res) => {
-  const token = _req.headers['x-csrf-token'] as string;
+router.get('/csrf-token', async (_req, res) => {
+  const token = crypto.randomBytes(16).toString('hex');
+  res.setHeader('X-CSRF-Token', token);
   res.json({ csrf_token: token });
 });
 
