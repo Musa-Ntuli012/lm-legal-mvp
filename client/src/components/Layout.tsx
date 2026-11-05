@@ -14,12 +14,42 @@ interface Profile {
   display_name: string;
 }
 
-export function Layout({ user, csrfToken, children }: LayoutProps) {
+/**
+ * Application shell layout.
+ *
+ * Provides the consistent page structure used by all routes:
+ * - Header: Logo (home link), role-based navigation, sign-out button.
+ * - Main: Centered content area (max-w-[1400px]) with page entry animation.
+ * - Footer: Copyright text and links to Privacy, Terms, Cookies.
+ *
+ * Navigation is role-dependent:
+ * - Unauthenticated: Sign in, Sign up links.
+ * - Student: Dashboard, Portfolio, Sign out.
+ * - Marker: Marker Dashboard, Sign out.
+ * - Administrator: Admin Overview, Task Builder, Sign out.
+ *
+ * Design tokens applied:
+ * - bg-canvas background, text-text-deep foreground.
+ * - Header uses bg-raised with border-border-control bottom border.
+ * - Footer uses bg-raised with border-border-control top border.
+ * - All buttons are 44x44px minimum touch targets.
+ * - No dashes, emojis, or icons in visible text.
+ *
+ * @param user - Current authenticated user profile, or null.
+ * @param csrfToken - CSRF token from the session (passed to pages for mutations).
+ * @param children - Page content rendered inside the layout.
+ * @returns JSX element with header, main, and footer sections.
+ */
+export function Layout({ user, csrfToken: _csrfToken, children }: LayoutProps) {
   const { signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const isSignInPage = location.pathname === '/signin' || location.pathname === '/signup';
 
+  /**
+   * Handles sign-out: confirms with the user, calls the auth hook,
+   * and navigates to the sign-in page.
+   */
   const handleSignOut = (e: React.MouseEvent) => {
     e.preventDefault();
     if (confirm('Sign out of the demo?')) {
@@ -34,8 +64,10 @@ export function Layout({ user, csrfToken, children }: LayoutProps) {
 
   return (
     <div className="flex flex-col min-h-screen bg-canvas text-text-deep">
+      {/* Header: sticky top bar with logo, navigation, and auth actions */}
       <header className="border-b border-border-control bg-raised flex-shrink-0">
         <div className="max-w-[1400px] mx-auto px-4 py-4 flex items-center justify-between">
+          {/* Brand logo + name (links to landing page) */}
           <NavLink
             to="/"
             className="flex items-center gap-2 text-xl font-bold text-primary tracking-tight"
@@ -46,8 +78,10 @@ export function Layout({ user, csrfToken, children }: LayoutProps) {
             <span>LM Legal</span>
           </NavLink>
 
+          {/* Navigation and auth actions */}
           <div className="flex items-center gap-3">
             {!user ? (
+              // Unauthenticated: show sign-in and sign-up
               <>
                 {!isSignInPage && (
                   <>
@@ -61,6 +95,7 @@ export function Layout({ user, csrfToken, children }: LayoutProps) {
                 )}
               </>
             ) : (
+              // Authenticated: show role-based navigation and sign-out
               <>
                 {isStudent && (
                   <>
@@ -99,10 +134,12 @@ export function Layout({ user, csrfToken, children }: LayoutProps) {
         </div>
       </header>
 
+      {/* Main content area: centered, max-width, page enter animation */}
       <main className="flex-1 max-w-[1400px] mx-auto px-4 py-6 page-enter animate-fade-in">
         {children}
       </main>
 
+      {/* Footer: copyright + legal links */}
       <footer className="border-t border-border-control bg-raised py-8 flex-shrink-0">
         <div className="max-w-[1400px] mx-auto px-4 text-center">
           <p className="text-caption-13 text-text-muted">

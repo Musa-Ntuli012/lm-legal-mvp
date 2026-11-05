@@ -7,26 +7,47 @@ import { sendEmail, feedbackPublishedEmail } from '../services/emailService';
 
 const router = Router();
 
-const reviewScoreSchema = z.object({
-  criterionId: z.string(),
-  score: z.number().min(0).max(4),
-  comment: z.string().optional(),
-});
-
 const reviewSchema = z.object({
-  submissionId: z.string(),
-  scores: z.array(reviewScoreSchema),
+  total: z.number().min(0),
   feedback: z.string().optional(),
-  total: z.number().min(0).max(20),
-  status: z.enum(['DRAFT', 'PUBLISHED']).optional(),
+  scores: z.array(
+    z.object({
+      criterionId: z.string(),
+      score: z.number().min(0),
+      comment: z.string().optional(),
+    })
+  ),
 });
 
-// GET /api/reviews/queue - Marker's queue (with blind marking support)
-router.get('/queue', authenticate, requireRoles('MARKER', 'ADMINISTRATOR', 'OWNER'), requireMembership, async (req, res) => {
-  const blindMarking = req.query.blind === 'true';
+const _publishSchema = z.object({
+  reviewId: z.string(),
+});
+
+const reviewCreateSchema = z.object({
+  submissionId: z.string().min(1, 'Submission ID is required'),
+});
+
+// ============================================
+// GET /api/reviews
+// List unmarked submissions for markers (with blind marking aliases).
+// ============================================
+
+/**
+ * GET /api/reviews
+ * Requires authentication + ACTIVE membership + MARKER or ADMINISTRATOR role.
+ *
+ * Returns submissions that have not yet been reviewed, ordered by creation
+ * date (oldest first). When blindMarking is true, student profiles are
+ * aliased (Marker Alias 1, alias1@lmlegal.demo, etc.) to prevent marker bias.
+ *
+ * Query params:
+ * - blindMarking (boolean, default true)
+ */
+router.get('/', authenticate, requireRoles('MARKER', 'ADMINISTRATOR', 'OWNER'), requireMembership, async (req, res) => {
+  const blindMarking = req.query.blindMarking !== 'false';
+
   const submissions = await prisma.submission.findMany({
     where: {
-      status: 'SUBMITTED',
       review: null,
     },
     include: {
@@ -38,7 +59,7 @@ router.get('/queue', authenticate, requireRoles('MARKER', 'ADMINISTRATOR', 'OWNE
     orderBy: { createdAt: 'asc' },
   });
 
-  // Alias profiles for blind marking
+  // Alias profiles for blind marking — hide student identity from marker.
   const aliased = blindMarking
     ? submissions.map((s: any, i: number) => ({
         ...s,
@@ -53,7 +74,76 @@ router.get('/queue', authenticate, requireRoles('MARKER', 'ADMINISTRATOR', 'OWNE
   res.json({ submissions: aliased });
 });
 
-// GET /api/reviews/drafts - List draft reviews for current marker
+// ============================================
+// POST /api/reviews
+// Create a draft review for a submission.
+// ============================================
+
+/**
+ * POST /api/reviews
+ * Requires authentication + ACTIVE membership + MARKER or ADMINISTRATOR role.
+ * CSRF-protected.
+ *
+ * Creates a draft review for the given submission. Only one review per
+ * submission is allowed (submissionId is unique in the Prisma schema).
+ * Sets profileId to the authenticated marker.
+ *
+ * Body: { submissionId }
+ */
+router.post('/', authenticate, requireRoles('MARKER', 'ADMINISTRATOR', 'OWNER'), requireMembership, csrfProtection, async (req, res) => {
+  const markerId = (req as any).profile!.id;
+  const parsed = reviewCreateSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'invalid_review_create' });
+  }
+
+  const { submissionId } = parsed.data;
+
+  // Check the submission exists.
+  const submission = await prisma.submission.findUnique({
+    where: { id: submissionId },
+  });
+
+  if (!submission) {
+    return res.status(404).json({ error: 'submission_not_found' });
+  }
+
+  // Check no review already exists for this submission.
+  const existing = await prisma.review.findUnique({
+    where: { submissionId },
+  });
+
+  if (existing) {
+    return res.status(409).json({ error: 'review_already_exists' });
+  }
+
+  const review = await prisma.review.create({
+    data: {
+      submissionId,
+      profileId: markerId,
+      status: 'DRAFT',
+      total: null,
+      feedback: '',
+      scores: '[]',
+    },
+  });
+
+  res.json({ ok: true, review });
+});
+
+// ============================================
+// GET /api/reviews/drafts
+// List draft reviews for the current marker.
+// ============================================
+
+/**
+ * GET /api/reviews/drafts
+ * Requires authentication + ACTIVE membership + MARKER or ADMINISTRATOR role.
+ *
+ * Returns all DRAFT reviews created by the authenticated marker, with
+ * submission and task details included.
+ */
 router.get('/drafts', authenticate, requireRoles('MARKER', 'ADMINISTRATOR', 'OWNER'), requireMembership, async (req, res) => {
   const drafts = await prisma.review.findMany({
     where: {
@@ -62,9 +152,11 @@ router.get('/drafts', authenticate, requireRoles('MARKER', 'ADMINISTRATOR', 'OWN
     },
     include: {
       submission: {
-        include: {
-          task: { select: { id: true, title: true, practiceArea: true } },
-          profile: { select: { id: true, displayName: true } },
+        select: {
+          id: true,
+          memo: true,
+          submittedAt: true,
+          task: { select: { id: true, title: true } },
         },
       },
     },
@@ -74,233 +166,180 @@ router.get('/drafts', authenticate, requireRoles('MARKER', 'ADMINISTRATOR', 'OWN
   res.json({ drafts });
 });
 
-// POST /api/reviews/draft - Save or update a draft review
-router.post('/draft', authenticate, requireRoles('MARKER', 'ADMINISTRATOR', 'OWNER'), requireMembership, csrfProtection, async (req, res) => {
+// ============================================
+// PUT /api/reviews/:id
+// Update a review (draft only, marker-owned).
+// ============================================
+
+/**
+ * PUT /api/reviews/:id
+ * Requires authentication + ACTIVE membership + MARKER or ADMINISTRATOR role.
+ * CSRF-protected.
+ *
+ * Updates an existing draft review's scores, feedback, and total. Only the
+ * marker who created the draft can update it. Status remains DRAFT until
+ * published via POST /api/reviews/:id/publish.
+ *
+ * Path param: :id - Review ID.
+ * Body: { total, feedback, scores: [{ criterionId, score, comment }] }
+ */
+router.put('/:id', authenticate, requireRoles('MARKER', 'ADMINISTRATOR', 'OWNER'), requireMembership, csrfProtection, async (req, res) => {
+  const { id } = req.params;
+  const markerId = (req as any).profile!.id;
   const parsed = reviewSchema.safeParse(req.body);
+
   if (!parsed.success) {
     return res.status(400).json({ error: 'invalid_review' });
   }
 
-  const { submissionId, scores, feedback, total } = parsed.data;
-  const markerId = (req as any).profile!.id;
+  // Verify the review exists and belongs to this marker.
+  const existing = await prisma.review.findUnique({
+    where: { id },
+  });
 
-  // Check if a draft already exists for this submission by this marker
-  const existing = await prisma.review.findFirst({
-    where: {
-      submissionId,
-      profileId: markerId,
-      status: 'DRAFT',
+  if (!existing || existing.profileId !== markerId) {
+    return res.status(403).json({ error: 'insufficient_role' });
+  }
+
+  await prisma.review.update({
+    where: { id },
+    data: {
+      total: parsed.data.total,
+      feedback: parsed.data.feedback || '',
+      scores: JSON.stringify(parsed.data.scores),
+      updatedAt: new Date(),
     },
   });
 
-  const scoresJson = JSON.stringify(scores);
-  const now = new Date();
-
-  let review;
-  if (existing) {
-    review = await prisma.review.update({
-      where: { id: existing.id },
-      data: {
-        scores: scoresJson,
-        feedback: feedback || '',
-        total,
-        updatedAt: now,
-      },
-    });
-  } else {
-    // Calculate review time if startedAt exists on submission
-    review = await prisma.review.create({
-      data: {
-        submissionId,
-        profileId: markerId,
-        total,
-        feedback: feedback || '',
-        scores: scoresJson,
-        status: 'DRAFT',
-        startedAt: now,
-      },
-    });
-  }
-
-  res.json({ ok: true, reviewId: review.id, status: review.status });
+  res.json({ ok: true });
 });
 
-// PUT /api/reviews/:id - Update a review (draft only, marker-owned)
-router.put('/:id', authenticate, requireRoles('MARKER', 'ADMINISTRATOR', 'OWNER'), requireMembership, csrfProtection, async (req, res) => {
-  const parsed = reviewSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: 'invalid_review' });
-  }
+// ============================================
+// POST /api/reviews/:id/publish
+// Publish a draft review (sets status to PUBLISHED).
+// ============================================
 
-  const { scores, feedback, total } = parsed.data;
+/**
+ * POST /api/reviews/:id/publish
+ * Requires authentication + ACTIVE membership + MARKER or ADMINISTRATOR role.
+ * CSRF-protected.
+ *
+ * Publishes a draft review: sets status to PUBLISHED, sets publishedAt,
+ * marks the submission as MARKED, and sends feedback email to the student.
+ * Only the marker who created the draft can publish it.
+ *
+ * Path param: :id - Review ID.
+ */
+router.post('/:id/publish', authenticate, requireRoles('MARKER', 'ADMINISTRATOR', 'OWNER'), requireMembership, csrfProtection, async (req, res) => {
+  const { id } = req.params;
   const markerId = (req as any).profile!.id;
 
-  const existing = await prisma.review.findFirst({
-    where: {
-      id: req.params.id,
-      profileId: markerId,
-      status: 'DRAFT',
+  // Verify the review exists and belongs to this marker, and has a total score.
+  const existing = await prisma.review.findUnique({
+    where: { id },
+    include: {
+      submission: {
+        include: {
+          profile: true,
+          task: true,
+        },
+      },
     },
   });
 
   if (!existing) {
-    return res.status(404).json({ error: 'draft_not_found' });
+    return res.status(404).json({ error: 'review_not_found' });
   }
 
-  const review = await prisma.review.update({
-    where: { id: req.params.id },
-    data: {
-      scores: JSON.stringify(scores),
-      feedback: feedback || '',
-      total,
-    },
-  });
+  if (existing.profileId !== markerId) {
+    return res.status(403).json({ error: 'insufficient_role' });
+  }
 
-  res.json({ ok: true, reviewId: review.id });
-});
+  if (existing.status !== 'DRAFT') {
+    return res.status(400).json({ error: 'review_not_draft' });
+  }
 
-// POST /api/reviews/:id/claim - Claim a submission for review
-router.post('/:id/claim', authenticate, requireRoles('MARKER', 'ADMINISTRATOR', 'OWNER'), requireMembership, csrfProtection, async (req, res) => {
-  const markerId = (req as any).profile!.id;
+  if (existing.total === null) {
+    return res.status(400).json({ error: 'review_incomplete' });
+  }
 
-  const submission = await prisma.submission.findUnique({
-    where: { id: req.params.id },
-    include: { review: true },
-  });
-
+  const submission = existing.submission;
   if (!submission) {
     return res.status(404).json({ error: 'submission_not_found' });
   }
 
-  if (submission.review) {
-    return res.status(400).json({ error: 'already_claimed' });
-  }
-
-  // Create a draft review to "claim" the submission
-  const now = new Date();
-  const review = await prisma.review.create({
-    data: {
-      submissionId: req.params.id,
-      profileId: markerId,
-      total: 0,
-      feedback: '',
-      scores: '[]',
-      status: 'DRAFT',
-      startedAt: now,
-    },
-  });
-
-  res.json({ ok: true, reviewId: review.id, claimed: true });
-});
-
-// POST /api/reviews/publish - Publish review (from draft or new)
-router.post('/publish', authenticate, requireRoles('MARKER', 'ADMINISTRATOR', 'OWNER'), requireMembership, csrfProtection, async (req, res) => {
-  const parsed = reviewSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: 'invalid_review' });
-  }
-
-  const { submissionId, scores, feedback, total } = parsed.data;
-  const markerId = (req as any).profile!.id;
-  const scoresJson = JSON.stringify(scores);
-  const now = new Date();
-
-  // Check if there's an existing draft for this submission by this marker
-  const existingDraft = await prisma.review.findFirst({
+  // Atomic publish: only succeeds if the review is still a draft owned by this marker.
+  const updated = await prisma.review.updateMany({
     where: {
-      submissionId,
-      profileId: markerId,
+      id,
       status: 'DRAFT',
+      profileId: markerId,
+    },
+    data: {
+      status: 'PUBLISHED',
+      publishedAt: new Date(),
+      updatedAt: new Date(),
     },
   });
 
-  let review;
-  let reviewTimeMinutes: number | null = null;
-
-  if (existingDraft) {
-    // Update existing draft to published
-    const startedAt = existingDraft.startedAt;
-    if (startedAt) {
-      reviewTimeMinutes = Math.round((now.getTime() - startedAt.getTime()) / 1000 / 60);
-    }
-
-    review = await prisma.review.update({
-      where: { id: existingDraft.id },
-      data: {
-        scores: scoresJson,
-        feedback: feedback || '',
-        total,
-        status: 'PUBLISHED',
-        publishedAt: now,
-        reviewTimeMinutes,
-        updatedAt: now,
-      },
-    });
-  } else {
-    // Create new published review
-    review = await prisma.review.create({
-      data: {
-        submissionId,
-        profileId: markerId,
-        total,
-        feedback: feedback || '',
-        scores: scoresJson,
-        status: 'PUBLISHED',
-        publishedAt: now,
-        startedAt: now,
-        reviewTimeMinutes: null,
-      },
-    });
+  if (updated.count === 0) {
+    return res.status(400).json({ error: 'review_not_draft' });
   }
 
   await prisma.submission.update({
-    where: { id: submissionId },
-    data: { status: 'MARKED' },
+    where: { id: submission.id },
+    data: {
+      status: 'MARKED',
+    },
   });
 
-  // Send feedback published email (non-blocking)
+  // Send feedback-published email to the student (non-blocking).
   try {
-    const submission = await prisma.submission.findUnique({
-      where: { id: submissionId },
-      include: { profile: true, task: true },
-    });
-    if (submission?.profile && submission.taskId) {
-      const taskForEmail = await prisma.task.findUnique({
-        where: { id: submission.taskId },
-      });
-      const rubric = await prisma.rubric.findUnique({
-        where: { taskId: submission.taskId },
-      });
-      if (taskForEmail) {
-        sendEmail(feedbackPublishedEmail(
-          submission.profile.email,
-          submission.profile.displayName || 'Student',
-          taskForEmail.title,
-          review.total ?? 0,
-          rubric?.maxScore ?? 0
-        )).catch(() => {});
-      }
+    if (submission.profile) {
+      sendEmail(feedbackPublishedEmail(
+        submission.profile.email,
+        submission.profile.displayName || 'Student',
+        submission.task.title,
+        existing.total ?? 0,
+        submission.submittedAt
+      )).catch(() => {}); // never block on email failure
     }
   } catch {
-    // email failure must not block
+    // email failure must not break publish
   }
 
-  res.json({ ok: true, reviewId: review.id, reviewTimeMinutes });
+  res.json({ ok: true });
 });
 
-// GET /api/reviews/:id - Get a specific review (for marker edit view)
+// ============================================
+// GET /api/reviews/:id
+// Get a specific review (for marker edit view).
+// ============================================
+
+/**
+ * GET /api/reviews/:id
+ * Requires authentication + ACTIVE membership + MARKER or ADMINISTRATOR role.
+ *
+ * Returns a single review owned by the authenticated marker, with its
+ * submission details. Other markers cannot view another marker's review.
+ *
+ * Path param: :id - Review ID.
+ */
 router.get('/:id', authenticate, requireRoles('MARKER', 'ADMINISTRATOR', 'OWNER'), requireMembership, async (req, res) => {
+  const { id } = req.params;
   const markerId = (req as any).profile!.id;
 
-  const review = await prisma.review.findFirst({
-    where: {
-      id: req.params.id,
-      profileId: markerId,
-    },
+  const review = await prisma.review.findUnique({
+    where: { id },
     include: {
       submission: {
-        include: {
-          task: { select: { id: true, title: true, practiceArea: true } },
+        select: {
+          id: true,
+          memo: true,
+          wordCount: true,
+          late: true,
+          submittedAt: true,
+          task: { select: { id: true, title: true } },
           profile: { select: { id: true, displayName: true } },
         },
       },
@@ -311,26 +350,12 @@ router.get('/:id', authenticate, requireRoles('MARKER', 'ADMINISTRATOR', 'OWNER'
     return res.status(404).json({ error: 'review_not_found' });
   }
 
-  const scores = JSON.parse(review.scores || '[]');
+  // Enforce marker ownership — only the marker who created the review can view it.
+  if (review.profileId !== markerId) {
+    return res.status(403).json({ error: 'insufficient_role' });
+  }
 
-  res.json({
-    review: {
-      id: review.id,
-      submissionId: review.submissionId,
-      scores: scores.map((s: any) => ({
-        criterionId: s.criterionId || s.criterion_id,
-        score: s.score,
-        comment: s.comment || '',
-      })),
-      feedback: review.feedback,
-      total: review.total,
-      status: review.status,
-      startedAt: review.startedAt,
-      publishedAt: review.publishedAt,
-      reviewTimeMinutes: review.reviewTimeMinutes,
-    },
-    submission: review.submission,
-  });
+  res.json({ review });
 });
 
 export default router;

@@ -1,15 +1,32 @@
 import { Request, Response, NextFunction } from 'express';
 
 /**
- * Field names that must never be rewritten. Passwords are verified against a
- * stored hash; stripping characters such as ; or -- before comparison breaks
- * existing passwords and can lock users out of their accounts.
+ * Field names that must never be rewritten by sanitization.
+ *
+ * Passwords are verified against a stored Argon2id hash. Stripping characters
+ * such as `;` or `--` from a password before comparison would break existing
+ * passwords and lock users out of their accounts. These fields are passed
+ * through untouched.
  */
-const SENSITIVE_FIELDS = new Set(['password', 'passwordHash', 'newPassword', 'confirmPassword', 'currentPassword']);
+const SENSITIVE_FIELDS = new Set([
+  'password',
+  'passwordhash',
+  'newpassword',
+  'confirmpassword',
+  'currentpassword',
+]);
 
 /**
- * Dangerous patterns that indicate injection or XSS attempts.
- * These are checked in raw request bodies and query parameters.
+ * Dangerous patterns that indicate XSS or SQL injection attempts.
+ * Each pattern is matched case-insensitively and removed from string values.
+ *
+ * Patterns include:
+ * - <script> and <iframe> tags
+ * - javascript: and vbscript: protocols
+ * - Event handlers (onload, onerror, onclick, onmouseover)
+ * - eval() and expression()
+ * - SQL keywords (union select, drop table, delete from, insert into)
+ * - SQL functions (exec, char, cast, convert)
  */
 const DANGEROUS_PATTERNS = [
   /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
@@ -33,13 +50,19 @@ const DANGEROUS_PATTERNS = [
 ];
 
 /**
- * Recursively sanitize a value, removing dangerous HTML/script patterns
- * from strings and walking into objects and arrays. Sensitive fields
- * (passwords) are returned untouched.
+ * Recursively sanitizes a value, removing dangerous patterns from strings
+ * and walking into objects and arrays.
+ *
+ * Sensitive fields (passwords) are identified by their object key and are
+ * returned untouched.
+ *
+ * @param value - The value to sanitize (string, object, array, or primitive).
+ * @param key - The object key for this value (used to detect sensitive fields).
+ * @returns The sanitized value.
  */
 function sanitizeValue(value: unknown, key?: string): unknown {
   if (typeof value === 'string') {
-    // Never rewrite sensitive fields such as passwords
+    // Never rewrite sensitive fields such as passwords.
     if (key && SENSITIVE_FIELDS.has(key.toLowerCase())) {
       return value;
     }
@@ -47,7 +70,7 @@ function sanitizeValue(value: unknown, key?: string): unknown {
     for (const pattern of DANGEROUS_PATTERNS) {
       sanitized = sanitized.replace(pattern, '');
     }
-    // Null byte removal
+    // Remove null bytes which can be used in injection attacks.
     sanitized = sanitized.replace(/\0/g, '');
     return sanitized;
   }
@@ -68,9 +91,17 @@ function sanitizeValue(value: unknown, key?: string): unknown {
 }
 
 /**
- * Middleware that sanitizes req.body, req.query, and req.params
- * to remove XSS, script injection, and SQL injection patterns.
- * Runs after express.json() and express.urlencoded().
+ * Middleware that sanitizes req.body, req.query, and req.params.
+ *
+ * Must be mounted AFTER express.json() and express.urlencoded() so that the
+ * body is already parsed into an object before sanitization walks it.
+ *
+ * Password fields are exempt from pattern stripping to avoid breaking
+ * existing passwords that contain special characters.
+ *
+ * @param req - Express request (body/query/params are sanitized in place).
+ * @param _res - Express response (unused).
+ * @param next - Express next function.
  */
 export function sanitizeInput(
   req: Request,
@@ -90,9 +121,18 @@ export function sanitizeInput(
 }
 
 /**
- * Middleware that checks for suspicious request patterns
- * and logs them (before sanitization). Does not block - rate limiting
- * handles repeated offenders.
+ * Middleware that detects suspicious request patterns and logs them.
+ *
+ * Checks for:
+ * - Known security scanner user agents (sqlmap, nikto, nmap, burpsuite, etc.)
+ * - Path traversal attempts (../, ..%2f, ..%5c)
+ * - Common attack URL paths (/etc/passwd, /wp-admin, /.env, /.git/, etc.)
+ *
+ * Does NOT block — logging only. Rate limiting handles repeated offenders.
+ *
+ * @param req - Express request.
+ * @param _res - Express response (unused).
+ * @param next - Express next function.
  */
 export function detectSuspiciousRequest(
   req: Request,
@@ -121,12 +161,16 @@ export function detectSuspiciousRequest(
     }
   }
 
-  // Check for path traversal in URL
-  if (req.path.includes('../') || req.path.includes('..%2f') || req.path.includes('..%5c')) {
+  // Check for path traversal in URL path.
+  if (
+    req.path.includes('../') ||
+    req.path.includes('..%2f') ||
+    req.path.includes('..%5c')
+  ) {
     suspiciousHeaders.push('path_traversal');
   }
 
-  // Check for common attack URLs
+  // Check for common attack paths.
   const attackPaths = [
     '/etc/passwd',
     '/proc/self/',

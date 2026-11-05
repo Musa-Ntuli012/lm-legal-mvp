@@ -3,22 +3,6 @@ import { NavLink } from 'react-router-dom';
 export function LandingPage() {
   return (
     <div className="min-h-screen flex flex-col bg-canvas text-text-deep">
-      <nav className="border-b border-border-control bg-raised flex-shrink-0">
-        <div className="max-w-[1400px] mx-auto px-4 py-4 flex items-center justify-between">
-          <NavLink to="/" className="flex items-center gap-2 text-xl font-bold text-primary tracking-tight">
-            <span className="w-8 h-8 rounded bg-primary flex items-center justify-center text-white font-bold text-lg">
-              LM
-            </span>
-            <span>LM Legal</span>
-          </NavLink>
-          <div className="flex items-center gap-4 text-sm">
-            <NavLink to="/how-it-works" className="text-text-secondary hover:text-primary">How it works</NavLink>
-            <NavLink to="/for-students" className="text-text-secondary hover:text-primary">For students</NavLink>
-            <NavLink to="/privacy" className="text-text-secondary hover:text-primary">Privacy</NavLink>
-            <NavLink to="/signin" className="btn btn-outline btn-sm">Sign in</NavLink>
-          </div>
-        </div>
-      </nav>
 
       <main className="flex-1 max-w-[1400px] mx-auto px-4 py-12 page-enter animate-fade-in">
         <section className="mb-16">
@@ -105,11 +89,6 @@ export function LandingPage() {
         </section>
       </main>
 
-      <footer className="border-t border-border-control bg-raised py-8 flex-shrink-0">
-        <div className="max-w-[1400px] mx-auto px-4 text-center">
-          <p className="text-caption-13 text-text-muted">LM Legal practical legal training for South African law graduates</p>
-        </div>
-      </footer>
     </div>
   );
 }

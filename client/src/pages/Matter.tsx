@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NavLink, useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 
 const MATTER_DOCUMENTS = [
   { id: '1', name: 'Client email - initial instruction.pdf', type: 'pdf', size: '245 KB' },
@@ -24,10 +24,10 @@ const MATTER_QUESTIONS = [
 ];
 
 export function Matter() {
-  const { id } = useParams();
-  const navigate = useNavigate();
+  const { id: _id } = useParams();
+  const _navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('brief');
-  const [showSubmit, setShowSubmit] = useState(false);
+  const [_showSubmit, setShowSubmit] = useState(false);
 
   const tabs = [
     { key: 'brief', label: 'Brief' },
@@ -38,32 +38,6 @@ export function Matter() {
 
   return (
     <div className="min-h-screen flex flex-col bg-canvas text-text-deep">
-      <header className="bg-raised border-b border-border-control flex-shrink-0">
-        <div className="max-w-[1400px] mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 text-text-secondary hover:text-primary">
-              <span className="w-8 h-8 rounded bg-raised border border-border-control flex items-center justify-center text-xs font-bold">
-                <span>&lt;</span>
-              </span>
-              <span className="hidden sm:inline">Matters</span>
-            </button>
-            <div className="flex items-center gap-2 text-xl font-bold text-primary tracking-tight">
-              <span className="w-8 h-8 rounded bg-primary flex items-center justify-center text-white font-bold text-lg">
-                LM
-              </span>
-              <span>LM Legal</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 text-sm">
-            <button className="btn btn-outline btn-sm">
-              Save draft
-            </button>
-            <button className="btn btn-primary btn-sm elevate">
-              Submit
-            </button>
-          </div>
-        </div>
-      </header>
 
       <main className="flex-1 max-w-[1400px] mx-auto px-4 py-6 page-enter animate-fade-in">
         <div className="flex flex-col lg:flex-row gap-6">
@@ -73,7 +47,7 @@ export function Matter() {
                 M
               </div>
               <div>
-                <h3 className="text-title">{id ? `Matter ${id.toUpperCase()}` : 'Matter'}</h3>
+                <h3 className="text-title">{_id ? `Matter ${_id.toUpperCase()}` : 'Matter'}</h3>
                 <p className="text-caption-13 text-text-muted">Employment dispute - memo</p>
               </div>
             </div>
@@ -269,11 +243,6 @@ export function Matter() {
         </div>
       </main>
 
-      <footer className="border-t border-border-control bg-raised py-8 flex-shrink-0">
-        <div className="max-w-[1400px] mx-auto px-4 text-center">
-          <p className="text-caption-13 text-text-muted">LM Legal built for South African law graduates</p>
-        </div>
-      </footer>
     </div>
   );
 }
