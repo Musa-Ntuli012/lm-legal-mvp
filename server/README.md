@@ -102,12 +102,15 @@ The middleware stack in `src/index.ts` is ordered deliberately. Each layer runs 
 
 ### Sign-In
 
-1. Client POSTs `{ email, password }` to `/api/auth/sign-in`.
-2. `signInRateLimit` enforces 5 attempts per 5 minutes per IP+email.
-3. `csrfProtection` validates the CSRF token.
-4. `signService.signIn()` looks up the profile, verifies the password with Argon2id constant-time comparison.
-5. On success: generates session token (32 bytes) + CSRF token (16 bytes), stores in Prisma `Session` table, sets `lm_session` cookie (8 hours, HttpOnly, SameSite=Lax, Secure in prod).
-6. Returns `{ ok: true, redirect, csrf_token, user }`.
+1. Client GETs `/api/auth/csrf-token` to obtain an anonymous CSRF token
+   (required in production before any state-changing request).
+2. Client POSTs `{ email, password }` to `/api/auth/sign-in` with the
+   CSRF token as `X-CSRF-Token` header.
+3. `signInRateLimit` enforces 5 attempts per 5 minutes per IP+email.
+4. `csrfProtection` validates the CSRF token.
+5. `signService.signIn()` looks up the profile, verifies the password with Argon2id constant-time comparison.
+6. On success: generates session token (32 bytes) + CSRF token (16 bytes), stores in Prisma `Session` table, sets `lm_session` cookie (8 hours, HttpOnly, SameSite=Lax, Secure in prod).
+7. Returns `{ ok: true, redirect, csrf_token, user }`.
 
 ### Session Validation (`authenticate` middleware)
 
@@ -145,10 +148,14 @@ await argon2.hash(password, {
 ### CSRF Protection
 
 - Token generated per session, stored in Prisma `Session.csrfToken`.
+- Anonymous clients can obtain a token via `GET /api/auth/csrf-token`
+  before sign-in/sign-up.
 - Client receives `csrf_token` in sign-in/sign-up response.
 - Client sends `X-CSRF-Token` header on all state-changing requests.
 - `csrfProtection` middleware validates the header/body token against the session.
 - Development mode accepts any token (for easier local development).
+- Production mode rejects requests with no token (403). Any nonempty
+  token value passes — session-bound token validation is not implemented.
 
 ### Input Sanitization (`sanitize.ts`)
 
@@ -217,7 +224,8 @@ Creates a submission for the current published task. Checks for duplicate submis
 Lists unmarked submissions for markers (with blind marking aliases).
 
 ### `PUT /api/reviews/:id`
-Updates a draft review, sets scores, publishes marks.
+Updates a draft review's scores, feedback, and total. Status remains DRAFT
+until published via POST /api/reviews/:id/publish.
 
 ### `GET /api/progress`
 Returns the authenticated student's progress statistics.

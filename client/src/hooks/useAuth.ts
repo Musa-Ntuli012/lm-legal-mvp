@@ -73,26 +73,33 @@ export function useAuth() {
   }, []);
 
   /**
-   * Signs the user out by calling the server's sign-out endpoint,
-   * then clears local state and navigates to sign-in.
-   * Note: Navigation is handled by the caller (Layout.handleSignOut).
+   * Signs the user out by calling the server's sign-out endpoint.
+   * Only clears local state after a successful response.
+   *
+   * @returns Promise that resolves when sign-out completes.
    */
   const signOut = useCallback(async () => {
     try {
-      await fetch('/api/auth/sign-out', {
+      const response = await fetch('/api/auth/sign-out', {
         method: 'POST',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
         },
       });
+
+      // Only clear local state if the server accepted the sign-out.
+      if (response.ok) {
+        setUser(null);
+        setCsrfToken('');
+      } else {
+        console.error('Sign out rejected by server:', response.status);
+      }
     } catch (err) {
       console.error('Sign out failed:', err);
-    } finally {
-      setUser(null);
-      setCsrfToken('');
     }
-  }, []);
+  }, [csrfToken]);
 
   // Validate session on mount.
   useEffect(() => {

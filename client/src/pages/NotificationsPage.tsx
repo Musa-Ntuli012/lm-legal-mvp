@@ -1,5 +1,3 @@
-import { NavLink } from 'react-router-dom';
-
 const NOTIFICATIONS = [
   { id: '1', title: 'New feedback available', body: 'Your memo draft for Matter EMP-001 has been marked.', time: '2 hours ago', read: false },
   { id: '2', title: 'Upcoming deadline', body: 'Delict problem question due Friday 21 June.', time: '1 day ago', read: false },

@@ -1,6 +1,4 @@
 import { useState } from 'react';
-import { NavLink } from 'react-router-dom';
-
 const TASK_TYPES = [
   { id: 'essay', label: 'Essay question', description: 'Open text response with word count' },
   { id: 'memo', label: 'Memo', description: 'Legal memo format response' },

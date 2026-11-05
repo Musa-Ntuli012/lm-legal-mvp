@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 export function ForgotPasswordPage() {
-  const navigate = useNavigate();
+  const _navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
 

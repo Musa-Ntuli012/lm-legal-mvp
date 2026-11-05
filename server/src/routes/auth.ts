@@ -12,7 +12,7 @@ import {
   confirmEmailVerification,
 } from '../services/authService';
 import { authenticate, requireRoles } from '../middleware/auth';
-import { csrfProtection } from '../middleware/csrf';
+import { csrfProtection, generateCsrfToken } from '../middleware/csrf';
 import { signInRateLimit } from '../middleware/rateLimit';
 import { inviteRateLimit } from '../middleware/ddos';
 import { z } from 'zod';
@@ -84,6 +84,23 @@ router.get('/session', authenticate, async (req, res) => {
   }
 
   res.json(session);
+});
+
+// ============================================
+// GET /api/auth/csrf-token - Anonymous CSRF token
+// ============================================
+
+/**
+ * GET /api/auth/csrf-token
+ * No authentication required.
+ *
+ * Issues a fresh CSRF token for anonymous clients before sign-in.
+ * Without this, sign-in and sign-up cannot succeed in production because
+ * csrfProtection requires a non-empty token on POST requests.
+ */
+router.get('/csrf-token', generateCsrfToken, async (_req, res) => {
+  const token = _req.headers['x-csrf-token'] as string;
+  res.json({ csrf_token: token });
 });
 
 // ============================================
@@ -233,8 +250,8 @@ router.post('/password-reset-request', csrfProtection, async (req, res) => {
     return res.status(400).json({ error: 'invalid_email' });
   }
 
-  const result = await requestPasswordReset(parsed.data.email);
-  res.json({ ok: true, emailSent: result.emailSent });
+  await requestPasswordReset(parsed.data.email);
+  res.json({ ok: true });
 });
 
 /**
@@ -273,8 +290,8 @@ router.post('/email-verification-request', csrfProtection, async (req, res) => {
     return res.status(400).json({ error: 'invalid_email' });
   }
 
-  const result = await requestEmailVerification(parsed.data.email);
-  res.json({ ok: true, emailSent: result.emailSent });
+  await requestEmailVerification(parsed.data.email);
+  res.json({ ok: true });
 });
 
 /**

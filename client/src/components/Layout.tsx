@@ -40,7 +40,7 @@ interface Profile {
  * @param children - Page content rendered inside the layout.
  * @returns JSX element with header, main, and footer sections.
  */
-export function Layout({ user, csrfToken, children }: LayoutProps) {
+export function Layout({ user, csrfToken: _csrfToken, children }: LayoutProps) {
   const { signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
