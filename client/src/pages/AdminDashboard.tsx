@@ -17,22 +17,6 @@ const RECENT_ACTIVITY = [
 export function AdminDashboard() {
   return (
     <div className="min-h-screen flex flex-col bg-canvas text-text-deep">
-      <header className="bg-raised border-b border-border-control flex-shrink-0">
-        <div className="max-w-[1400px] mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xl font-bold text-primary tracking-tight">
-            <span className="w-8 h-8 rounded bg-primary flex items-center justify-center text-white font-bold text-lg">
-              LM
-            </span>
-            <span>LM Legal</span>
-          </div>
-          <div className="flex items-center gap-4 text-sm">
-            <span className="hidden sm:inline text-text-secondary">Administrator overview</span>
-            <button className="btn btn-primary btn-sm elevate">
-              Admin profile
-            </button>
-          </div>
-        </div>
-      </header>
 
       <main className="flex-1 max-w-[1400px] mx-auto px-4 py-6 page-enter animate-fade-in">
         <h2 className="text-title mb-8">Administrator overview</h2>
@@ -87,11 +71,6 @@ export function AdminDashboard() {
         </div>
       </main>
 
-      <footer className="border-t border-border-control bg-raised py-8 flex-shrink-0">
-        <div className="max-w-[1400px] mx-auto px-4 text-center">
-          <p className="text-caption-13 text-text-muted">LM Legal built for South African law graduates</p>
-        </div>
-      </footer>
     </div>
   );
 }

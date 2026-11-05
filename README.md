@@ -470,3 +470,37 @@ See `server/src/middleware/sanitize.ts` and `server/src/index.ts` for reference.
 ## License
 
 Private — LM Legal MVP. All rights reserved.
+
+---
+
+## GitHub Pages Deployment (Client)
+
+The React/Vite client is deployed to GitHub Pages automatically on every push
+to the `main` branch via `.github/workflows/deploy.yml`.
+
+### How it works
+
+1. **Build** — The workflow runs `npm run build` in the `client/` directory.
+   Vite's `base` is set dynamically from `GITHUB_REPOSITORY` so that assets
+   are served correctly under `https://<user>.github.io/<repo>/`.
+2. **Upload** — The `client/dist/` directory is uploaded as a Pages artifact.
+3. **Deploy** — `actions/deploy-pages@v4` publishes the artifact to GitHub
+   Pages.
+
+### One-time repository setup
+
+1. In your GitHub repository, go to **Settings → Pages**.
+2. Under **Build and deployment → Source**, select **GitHub Actions**.
+3. Push to the `main` branch — the first successful deploy will publish the
+   site at `https://<your-username>.github.io/lm-legal-mvp/`.
+
+### Local preview of the production build
+
+```bash
+cd client
+npm run build
+npm run preview
+```
+
+The preview server will serve the production build at `http://localhost:4173`.
+
