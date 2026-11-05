@@ -26,7 +26,7 @@ async function main() {
 
   const _marker = await prisma.profile.upsert({
     where: { email: 'investor@lmlegal.demo' },
-    update: {},
+    update: { passwordHash: markerHash },
     create: {
       email: 'investor@lmlegal.demo',
       passwordHash: markerHash,
@@ -71,7 +71,7 @@ async function main() {
 
   const _admin = await prisma.profile.upsert({
     where: { email: 'admin@lmlegal.demo' },
-    update: {},
+    update: { passwordHash: adminHash },
     create: {
       email: 'admin@lmlegal.demo',
       passwordHash: adminHash,

@@ -1,5 +1,3 @@
-import { NavLink } from 'react-router-dom';
-
 export function CookiePage() {
   return (
     <div className="min-h-screen flex flex-col bg-canvas text-text-deep">

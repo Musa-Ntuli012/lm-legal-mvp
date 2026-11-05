@@ -85,7 +85,8 @@ export function HowItWorksPage() {
             <p className="text-body text-text-secondary">
               Markers review student submissions in the marking queue, score each
               criterion against the rubric, add written comments, and publish marks.
-              Blind marking hides student identities during review.
+              The server supports blind marking aliases to hide student identities
+              during review when enabled.
             </p>
           </div>
 
@@ -186,8 +187,8 @@ export function HowItWorksPage() {
               </p>
             </div>
             <div className="flex justify-end">
-              <NavLink to="/signup" className="btn btn-primary btn-lg elevate">
-                Request an invite
+              <NavLink to="/signin" className="btn btn-primary btn-lg elevate">
+                Sign in
               </NavLink>
             </div>
           </div>

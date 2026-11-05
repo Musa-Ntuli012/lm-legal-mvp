@@ -70,6 +70,7 @@ router.post('/', authenticate, requireRoles('ADMINISTRATOR', 'OWNER'), csrfProte
       deadlineAt: parsed.data.deadlineAt ? new Date(parsed.data.deadlineAt) : null,
       releaseAt: parsed.data.releaseAt ? new Date(parsed.data.releaseAt) : new Date(),
       status: 'PUBLISHED',
+      creatorId: (req as any).profile!.id,
     },
   });
 

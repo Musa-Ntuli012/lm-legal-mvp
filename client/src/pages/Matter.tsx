@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NavLink, useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 
 const MATTER_DOCUMENTS = [
   { id: '1', name: 'Client email - initial instruction.pdf', type: 'pdf', size: '245 KB' },
@@ -24,10 +24,10 @@ const MATTER_QUESTIONS = [
 ];
 
 export function Matter() {
-  const { id } = useParams();
-  const navigate = useNavigate();
+  const { id: _id } = useParams();
+  const _navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('brief');
-  const [showSubmit, setShowSubmit] = useState(false);
+  const [_showSubmit, setShowSubmit] = useState(false);
 
   const tabs = [
     { key: 'brief', label: 'Brief' },
@@ -47,7 +47,7 @@ export function Matter() {
                 M
               </div>
               <div>
-                <h3 className="text-title">{id ? `Matter ${id.toUpperCase()}` : 'Matter'}</h3>
+                <h3 className="text-title">{_id ? `Matter ${_id.toUpperCase()}` : 'Matter'}</h3>
                 <p className="text-caption-13 text-text-muted">Employment dispute - memo</p>
               </div>
             </div>
