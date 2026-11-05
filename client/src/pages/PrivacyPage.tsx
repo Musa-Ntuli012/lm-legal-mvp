@@ -1,3 +1,5 @@
+import { NavLink } from 'react-router-dom';
+
 export function PrivacyPage() {
   return (
     <div className="min-h-screen flex flex-col bg-canvas text-text-deep">

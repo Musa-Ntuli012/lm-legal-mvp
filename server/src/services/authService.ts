@@ -429,18 +429,18 @@ export async function acceptInvite(
  *
  * Generates a single-use token valid for 30 minutes, stores it in the DB,
  * and sends a reset email. Never reveals whether the email exists — always
- * returns ok: true regardless of whether the email address has an account.
+ * returns ok: true (emailSent indicates whether an email was actually sent).
  *
  * @param email - User's email address.
- * @returns { ok }.
+ * @returns { ok, emailSent }.
  */
-export async function requestPasswordReset(email: string): Promise<{ ok: boolean }> {
+export async function requestPasswordReset(email: string): Promise<{ ok: boolean; emailSent: boolean }> {
   const profile = await prisma.profile.findUnique({ where: { email } });
 
   // Always hash something to prevent timing attacks, even if email not found.
   if (!profile) {
     await argon2.verify('$2b$06$invalid.invalid.invalidinvalidinvalidinv', 'dummy');
-    return { ok: true };
+    return { ok: true, emailSent: false };
   }
 
   // Invalidate any existing unused reset tokens for this profile.
@@ -465,7 +465,7 @@ export async function requestPasswordReset(email: string): Promise<{ ok: boolean
   sendEmail(passwordResetEmail(profile.email, profile.displayName || 'Student', resetUrl))
     .catch(() => {});
 
-  return { ok: true };
+  return { ok: true, emailSent: true };
 }
 
 /**
@@ -520,23 +520,22 @@ export async function confirmPasswordReset(
  * Request email verification.
  *
  * Generates a single-use token valid for 7 days, stores it in the DB,
- * and sends a verification email. Never reveals whether the email exists
- * or whether it is already verified — always returns ok: true.
+ * and sends a verification email. Never reveals whether the email exists.
  *
  * @param email - User's email address.
- * @returns { ok }.
+ * @returns { ok, emailSent }.
  */
-export async function requestEmailVerification(email: string): Promise<{ ok: boolean }> {
+export async function requestEmailVerification(email: string): Promise<{ ok: boolean; emailSent: boolean }> {
   const profile = await prisma.profile.findUnique({ where: { email } });
 
   if (!profile) {
     await argon2.verify('$2b$06$invalid.invalid.invalidinvalidinvalidinv', 'dummy');
-    return { ok: true };
+    return { ok: true, emailSent: false };
   }
 
-  // Already verified — no email needed, but still return ok.
+  // Already verified.
   if (profile.emailVerified) {
-    return { ok: true };
+    return { ok: true, emailSent: false };
   }
 
   // Invalidate any existing unused verification tokens.
@@ -561,7 +560,7 @@ export async function requestEmailVerification(email: string): Promise<{ ok: boo
   sendEmail(emailVerificationEmail(profile.email, profile.displayName || 'Student', verifyUrl))
     .catch(() => {});
 
-  return { ok: true };
+  return { ok: true, emailSent: true };
 }
 
 /**

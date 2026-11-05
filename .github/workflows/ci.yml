@@ -42,15 +42,15 @@ jobs:
           cache: 'npm'
 
       - name: Install root dependencies
-        run: npm install
+        run: npm ci
         working-directory: .
 
       - name: Install server dependencies
-        run: npm install
+        run: npm ci
         working-directory: server
 
       - name: Install client dependencies
-        run: npm install
+        run: npm ci
         working-directory: client
 
       - name: Run server lint
@@ -100,15 +100,15 @@ jobs:
           cache: 'npm'
 
       - name: Install root dependencies
-        run: npm install
+        run: npm ci
         working-directory: .
 
       - name: Install server dependencies
-        run: npm install
+        run: npm ci
         working-directory: server
 
       - name: Install client dependencies
-        run: npm install
+        run: npm ci
         working-directory: client
 
       - name: Generate Prisma client
@@ -151,15 +151,15 @@ jobs:
           cache: 'npm'
 
       - name: Install root dependencies
-        run: npm install
+        run: npm ci
         working-directory: .
 
       - name: Install server dependencies
-        run: npm install
+        run: npm ci
         working-directory: server
 
       - name: Install client dependencies
-        run: npm install
+        run: npm ci
         working-directory: client
 
       - name: Generate Prisma client
@@ -192,15 +192,15 @@ jobs:
           cache: 'npm'
 
       - name: Install root dependencies
-        run: npm install
+        run: npm ci
         working-directory: .
 
       - name: Install server dependencies
-        run: npm install
+        run: npm ci
         working-directory: server
 
       - name: Install client dependencies
-        run: npm install
+        run: npm ci
         working-directory: client
 
       - name: Run server audit

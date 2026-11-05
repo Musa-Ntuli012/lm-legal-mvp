@@ -5,16 +5,15 @@ import crypto from 'crypto';
  * CSRF (Cross-Site Request Forgery) protection middleware.
  *
  * Validates that state-changing requests (POST, PUT, DELETE, PATCH) include
- * a non-empty CSRF token. The token is issued during sign-in/sign-up and
- * returned in the response body. The client must send it as either:
+ * a valid CSRF token. The token is issued during sign-in/sign-up and stored
+ * in the session record in the database. The client must send it as either:
  * - The `X-CSRF-Token` HTTP header, or
  * - The `csrf_token` field in the request body.
  *
  * Safe methods (GET, HEAD, OPTIONS) are always allowed without a token.
  *
  * Development mode: accepts any token to simplify local development.
- * Production mode: rejects requests with no token (403). Any nonempty
- * token value passes — session-bound token validation is not implemented.
+ * Production mode: rejects requests with no token (403).
  *
  * @param req - Express request.
  * @param res - Express response (sets X-CSRF-Token header in dev).
