@@ -12,7 +12,17 @@ const submitSchema = z.object({
   decision: z.string().optional(),
 });
 
-// GET /api/submissions - List user's submissions
+// ============================================
+// GET /api/submissions
+// List the authenticated student's submissions.
+// ============================================
+
+/**
+ * GET /api/submissions
+ * Requires authentication + ACTIVE membership.
+ * Returns all submissions for the current user, ordered by creation date
+ * (newest first), with task and review information included.
+ */
 router.get('/', authenticate, requireMembership, async (req, res) => {
   const submissions = await prisma.submission.findMany({
     where: { profileId: (req as any).profile!.id },
@@ -25,7 +35,25 @@ router.get('/', authenticate, requireMembership, async (req, res) => {
   res.json({ submissions });
 });
 
-// POST /api/submissions - Submit a memo
+// ============================================
+// POST /api/submissions
+// Submit a memo for the current published task.
+// ============================================
+
+/**
+ * POST /api/submissions
+ * Requires authentication + ACTIVE membership.
+ * CSRF-protected.
+ *
+ * 1. Validates the submission body (memo required).
+ * 2. Finds the latest published task with a current version.
+ * 3. Checks for duplicate submissions (idempotency).
+ * 4. Determines if the submission is late (past deadline).
+ * 5. Creates the submission record with word count.
+ * 6. Sends a submission confirmation email (non-blocking — never blocks on email failure).
+ *
+ * Returns { ok: true, submission_id, late }.
+ */
 router.post('/', authenticate, requireMembership, csrfProtection, async (req, res) => {
   const parsed = submitSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -34,7 +62,7 @@ router.post('/', authenticate, requireMembership, csrfProtection, async (req, re
 
   const profileId = (req as any).profile!.id;
 
-  // Get the latest published task with its current version
+  // Get the latest published task with its current version.
   const task = await prisma.task.findFirst({
     where: {
       status: 'PUBLISHED',
@@ -52,7 +80,7 @@ router.post('/', authenticate, requireMembership, csrfProtection, async (req, re
 
   const taskVersionId = task.versions[0].id;
 
-  // Check for existing submission (idempotency)
+  // Idempotency: prevent duplicate submissions for the same task.
   const existing = await prisma.submission.findFirst({
     where: { taskId: task.id, profileId },
   });
@@ -78,7 +106,7 @@ router.post('/', authenticate, requireMembership, csrfProtection, async (req, re
     },
   });
 
-  // Send submission confirmation email (non-blocking)
+  // Send submission confirmation email — never block on email failure.
   try {
     const profile = await prisma.profile.findUnique({ where: { id: profileId } });
     if (profile) {
@@ -88,10 +116,10 @@ router.post('/', authenticate, requireMembership, csrfProtection, async (req, re
         task.title,
         now,
         late
-      )).catch(() => {}); // never block on email failure
+      )).catch(() => {}); // email failure must not break submission
     }
   } catch {
-    // email failure must not break submission
+    // Email failure must not break submission.
   }
 
   res.json({ ok: true, submission_id: submission.id, late });

@@ -6,24 +6,26 @@ import { z } from 'zod';
 
 const router = Router();
 
-const createTaskSchema = z.object({
+const taskSchema = z.object({
   title: z.string().min(1, 'Title is required'),
-  practiceArea: z.string().min(1, 'Practice area is required'),
   description: z.string().optional(),
-  releaseAt: z.string().optional(),
-  deadlineAt: z.string().optional(),
+  practiceArea: z.string().optional(),
+  deadlineAt: z.string().optional(), // ISO date string
+  releaseAt: z.string().optional(),  // ISO date string
 });
 
-const addBlockSchema = z.object({
-  type: z.enum(['SCENARIO', 'EMAIL', 'DOCUMENT', 'QUESTION', 'DECISION', 'DRAFTING', 'SUBMISSION']),
-  title: z.string().optional(),
-  content: z.string().optional(),
-  config: z.string().optional(),
-  branches: z.string().optional(),
-  order: z.number().optional(),
-});
+// ============================================
+// GET /api/tasks
+// List published tasks for the current context.
+// ============================================
 
-// GET /api/tasks - List tasks
+/**
+ * GET /api/tasks
+ * Requires authentication + ACTIVE membership.
+ *
+ * Returns all tasks released before now, ordered by release date (newest first).
+ * Used by students to see available matters and by markers to see what to mark.
+ */
 router.get('/', authenticate, requireMembership, async (req, res) => {
   const tasks = await prisma.task.findMany({
     where: {
@@ -32,121 +34,30 @@ router.get('/', authenticate, requireMembership, async (req, res) => {
     },
     orderBy: { releaseAt: 'desc' },
     include: {
-      _count: { select: { submissions: true } },
+      versions: { where: { isCurrent: true }, take: 1 },
     },
   });
+
   res.json({ tasks });
 });
 
-// GET /api/tasks/:id - Get single task
-router.get('/:id', authenticate, requireMembership, async (req, res) => {
-  const task = await prisma.task.findUnique({
-    where: { id: req.params.id },
-    include: {
-      versions: { where: { isCurrent: true }, take: 1 },
-      blocks: { orderBy: { order: 'asc' } },
-      rubric: true,
-      modelAnswer: true,
-    },
-  });
+// ============================================
+// POST /api/tasks
+// Create a new task (administrator only).
+// ============================================
 
-  if (!task) {
-    return res.status(404).json({ error: 'task_not_found' });
-  }
-
-  // Check if task is published and released
-  if (task.status !== 'PUBLISHED' || (task.releaseAt && new Date(task.releaseAt) > new Date())) {
-    return res.status(404).json({ error: 'task_not_found' });
-  }
-
-  res.json({ task });
-});
-
-// GET /api/tasks/:id/blocks - List blocks (admin only)
-router.get('/:id/blocks', authenticate, requireRoles('ADMINISTRATOR', 'OWNER'), async (req, res) => {
-  const blocks = await prisma.block.findMany({
-    where: { taskId: req.params.id },
-    orderBy: { order: 'asc' },
-  });
-  res.json({ blocks });
-});
-
-// POST /api/tasks/:id/blocks - Add block (admin only)
-router.post('/:id/blocks', authenticate, requireRoles('ADMINISTRATOR', 'OWNER'), csrfProtection, async (req, res) => {
-  const parsed = addBlockSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: 'invalid_block' });
-  }
-
-  // Get max order
-  const maxOrder = await prisma.block.aggregate({
-    where: { taskId: req.params.id },
-    _max: { order: true },
-  });
-  const order = parsed.data.order ?? ((maxOrder._max.order || 0) + 1);
-
-  const block = await prisma.block.create({
-    data: {
-      taskId: req.params.id,
-      type: parsed.data.type,
-      title: parsed.data.title,
-      content: parsed.data.content,
-      config: parsed.data.config,
-      branches: parsed.data.branches,
-      order,
-    },
-  });
-
-  res.json({ block });
-});
-
-// PUT /api/tasks/:id/blocks/:blockId - Update block (admin only)
-router.put('/:id/blocks/:blockId', authenticate, requireRoles('ADMINISTRATOR', 'OWNER'), csrfProtection, async (req, res) => {
-  const parsed = addBlockSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: 'invalid_block' });
-  }
-
-  const block = await prisma.block.update({
-    where: { id: req.params.blockId, taskId: req.params.id },
-    data: {
-      type: parsed.data.type,
-      title: parsed.data.title,
-      content: parsed.data.content,
-      config: parsed.data.config,
-      branches: parsed.data.branches,
-      order: parsed.data.order,
-    },
-  });
-
-  res.json({ block });
-});
-
-// DELETE /api/tasks/:id/blocks/:blockId - Remove block (admin only)
-router.delete('/:id/blocks/:blockId', authenticate, requireRoles('ADMINISTRATOR', 'OWNER'), csrfProtection, async (req, res) => {
-  await prisma.block.delete({
-    where: { id: req.params.blockId, taskId: req.params.id },
-  });
-  res.json({ ok: true });
-});
-
-// POST /api/tasks/:id/blocks/reorder - Reorder blocks (admin only)
-router.post('/:id/blocks/reorder', authenticate, requireRoles('ADMINISTRATOR', 'OWNER'), csrfProtection, async (req, res) => {
-  const { blockIds } = z.object({ blockIds: z.array(z.string()) }).parse(req.body);
-  await prisma.$transaction(
-    blockIds.map((id, index) =>
-      prisma.block.update({
-        where: { id, taskId: req.params.id },
-        data: { order: index + 1 },
-      })
-    )
-  );
-  res.json({ ok: true });
-});
-
-// POST /api/tasks - Create task (admin only)
+/**
+ * POST /api/tasks
+ * Requires authentication + ADMINISTRATOR or OWNER role.
+ * CSRF-protected.
+ *
+ * Creates a new task with title, description, practice area, deadline, and
+ * release date. Used by the TaskBuilder page.
+ *
+ * Body: { title, description?, practiceArea?, deadlineAt?, releaseAt? }
+ */
 router.post('/', authenticate, requireRoles('ADMINISTRATOR', 'OWNER'), csrfProtection, async (req, res) => {
-  const parsed = createTaskSchema.safeParse(req.body);
+  const parsed = taskSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: 'invalid_task' });
   }
@@ -154,14 +65,15 @@ router.post('/', authenticate, requireRoles('ADMINISTRATOR', 'OWNER'), csrfProte
   const task = await prisma.task.create({
     data: {
       title: parsed.data.title,
-      practiceArea: parsed.data.practiceArea,
-      description: parsed.data.description,
-      status: 'DRAFT',
-      creatorId: (req as any).profile!.id,
+      description: parsed.data.description || '',
+      practiceArea: parsed.data.practiceArea || '',
+      deadlineAt: parsed.data.deadlineAt ? new Date(parsed.data.deadlineAt) : null,
+      releaseAt: parsed.data.releaseAt ? new Date(parsed.data.releaseAt) : new Date(),
+      status: 'PUBLISHED',
     },
   });
 
-  res.json({ task });
+  res.json({ ok: true, taskId: task.id });
 });
 
 export default router;

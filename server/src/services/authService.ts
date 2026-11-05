@@ -3,6 +3,7 @@ import argon2 from 'argon2';
 import crypto from 'crypto';
 import { sendEmail, passwordResetEmail, emailVerificationEmail } from './emailService';
 
+/** Prisma client singleton for database access. */
 export const prisma = new PrismaClient();
 
 export interface AuthResult {
@@ -18,6 +19,22 @@ export interface AuthResult {
   };
 }
 
+/**
+ * Sign in a user with email and password.
+ *
+ * 1. Looks up the profile by email.
+ * 2. Verifies password with Argon2id constant-time comparison.
+ *    - Even if the profile doesn't exist, runs a dummy argon2.verify() to
+ *      prevent timing attacks that could reveal whether an email exists.
+ * 3. Creates a session token (32 bytes) and CSRF token (16 bytes).
+ * 4. Sets the lm_session cookie (8 hours, HttpOnly, SameSite=Lax, Secure in prod).
+ * 5. Logs an audit event.
+ *
+ * @param email - User's email address.
+ * @param password - User's password (plain text).
+ * @param res - Express response object (for cookie setting).
+ * @returns AuthResult with redirect path and CSRF token on success.
+ */
 export async function signIn(
   email: string,
   password: string,
@@ -25,23 +42,24 @@ export async function signIn(
 ): Promise<AuthResult> {
   const profile = await prisma.profile.findUnique({ where: { email } });
 
-  // Constant-time comparison to prevent timing attacks
+  // Constant-time comparison to prevent timing attacks.
   let ok = false;
   if (profile) {
     ok = await argon2.verify(profile.passwordHash, password);
   }
 
   if (!ok) {
-    // Still hash something to prevent timing attacks
+    // Still hash something to prevent timing attacks even when profile not found.
     await argon2.verify('$2b$06$invalid.invalid.invalidinvalidinvalidinv', password);
     return { ok: false, error: 'invalid_credentials' };
   }
 
+  // Defensive check (should never be reached since ok=true implies profile exists).
   if (!profile) {
     return { ok: false, error: 'invalid_credentials' };
   }
 
-  // Create session
+  // Create session.
   const sessionToken = crypto.randomBytes(32).toString('hex');
   const csrfToken = crypto.randomBytes(16).toString('hex');
   const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000); // 8 hours
@@ -56,13 +74,13 @@ export async function signIn(
     },
   });
 
-  // Update last sign in
+  // Update last sign in timestamp.
   await prisma.profile.update({
     where: { id: profile.id },
     data: { lastSignInAt: new Date() },
   });
 
-  // Set session cookie
+  // Set session cookie with secure defaults.
   res.cookie('lm_session', sessionToken, {
     httpOnly: true,
     sameSite: 'lax',
@@ -71,7 +89,7 @@ export async function signIn(
     maxAge: 8 * 60 * 60 * 1000,
   });
 
-  // Audit log
+  // Audit log.
   await prisma.auditLog.create({
     data: {
       profileId: profile.id,
@@ -101,19 +119,34 @@ export async function signIn(
   };
 }
 
+/**
+ * Sign up a new user.
+ *
+ * 1. Checks if email already exists.
+ * 2. Hashes password with Argon2id (memoryCost=65536, timeCost=3, parallelism=4).
+ * 3. Creates profile with STUDENT role and ACTIVE membership.
+ * 4. Creates session and sets cookie.
+ * 5. Logs audit event.
+ *
+ * @param email - User's email address.
+ * @param password - User's password (plain text, min 12 chars).
+ * @param displayName - User's display name.
+ * @param res - Express response object (for cookie setting).
+ * @returns AuthResult with redirect to /dashboard on success.
+ */
 export async function signUp(
   email: string,
   password: string,
   displayName: string,
   res: any
 ): Promise<AuthResult> {
-  // Check if email already exists
+  // Check if email already exists.
   const existing = await prisma.profile.findUnique({ where: { email } });
   if (existing) {
     return { ok: false, error: 'email_exists' };
   }
 
-  // Hash password with argon2
+  // Hash password with argon2id.
   const passwordHash = await argon2.hash(password, {
     type: argon2.argon2id,
     memoryCost: 65536,
@@ -131,7 +164,7 @@ export async function signUp(
     },
   });
 
-  // Create session
+  // Create session.
   const sessionToken = crypto.randomBytes(32).toString('hex');
   const csrfToken = crypto.randomBytes(16).toString('hex');
   const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000);
@@ -176,6 +209,13 @@ export async function signUp(
   };
 }
 
+/**
+ * Sign out a user.
+ * Deletes all sessions for the profile and clears the lm_session cookie.
+ *
+ * @param res - Express response object (for cookie clearing).
+ * @param profileId - Optional profile ID for audit logging.
+ */
 export async function signOut(res: any, profileId?: string): Promise<void> {
   if (profileId) {
     await prisma.session.deleteMany({ where: { profileId } });
@@ -197,6 +237,13 @@ export async function signOut(res: any, profileId?: string): Promise<void> {
   });
 }
 
+/**
+ * Get session details by token.
+ * Returns null if session not found or expired.
+ *
+ * @param token - Session token string.
+ * @returns Session object with csrf_token and user, or null.
+ */
 export async function getSession(token: string): Promise<any> {
   const session = await prisma.session.findUnique({
     where: { token },
@@ -220,6 +267,19 @@ export async function getSession(token: string): Promise<any> {
   };
 }
 
+/**
+ * Create an invitation for a new user.
+ *
+ * 1. Checks no existing unused, unexpired invitation for the email.
+ * 2. Generates a 32-byte token.
+ * 3. Sets expiration to 7 days.
+ * 4. Creates invitation record and logs audit event.
+ *
+ * @param email - Invitee's email address.
+ * @param invitedById - ID of the administrator creating the invite.
+ * @param role - Role to assign (STUDENT, MARKER, ADMINISTRATOR).
+ * @returns { ok, token } or { ok, error }.
+ */
 export async function createInvite(
   email: string,
   invitedById: string,
@@ -257,6 +317,25 @@ export async function createInvite(
   return { ok: true, token };
 }
 
+/**
+ * Accept an invitation and create an account.
+ *
+ * 1. Looks up the invitation by token.
+ * 2. Validates token is not used and not expired.
+ * 3. Verifies invitation email matches provided email.
+ * 4. Marks invitation as used.
+ * 5. Hashes password with Argon2id.
+ * 6. Creates profile with invited role.
+ * 7. Creates session and sets cookie.
+ * 8. Logs audit event.
+ *
+ * @param token - Invitation token.
+ * @param email - Invitee's email (must match invitation).
+ * @param password - New user's password.
+ * @param displayName - New user's display name.
+ * @param res - Express response object.
+ * @returns AuthResult with redirect path.
+ */
 export async function acceptInvite(
   token: string,
   email: string,
@@ -274,13 +353,13 @@ export async function acceptInvite(
     return { ok: false, error: 'email_mismatch' };
   }
 
-  // Mark invitation as used
+  // Mark invitation as used.
   await prisma.invitation.update({
     where: { id: invitation.id },
     data: { used: true, usedAt: new Date() },
   });
 
-  // Create profile
+  // Create profile.
   const passwordHash = await argon2.hash(password, {
     type: argon2.argon2id,
     memoryCost: 65536,
@@ -298,7 +377,7 @@ export async function acceptInvite(
     },
   });
 
-  // Create session
+  // Create session.
   const sessionToken = crypto.randomBytes(32).toString('hex');
   const csrfToken = crypto.randomBytes(16).toString('hex');
   const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000);
@@ -346,20 +425,25 @@ export async function acceptInvite(
 }
 
 /**
- * Request a password reset. Generates a single-use token valid for 30 minutes,
- * stores it in the database, and sends a reset email.
- * Never reveals whether the email exists.
+ * Request a password reset.
+ *
+ * Generates a single-use token valid for 30 minutes, stores it in the DB,
+ * and sends a reset email. Never reveals whether the email exists — always
+ * returns ok: true (emailSent indicates whether an email was actually sent).
+ *
+ * @param email - User's email address.
+ * @returns { ok, emailSent }.
  */
 export async function requestPasswordReset(email: string): Promise<{ ok: boolean; emailSent: boolean }> {
   const profile = await prisma.profile.findUnique({ where: { email } });
 
-  // Always hash something to prevent timing attacks, even if email not found
+  // Always hash something to prevent timing attacks, even if email not found.
   if (!profile) {
     await argon2.verify('$2b$06$invalid.invalid.invalidinvalidinvalidinv', 'dummy');
     return { ok: true, emailSent: false };
   }
 
-  // Invalidate any existing unused reset tokens for this profile
+  // Invalidate any existing unused reset tokens for this profile.
   await prisma.passwordReset.updateMany({
     where: { profileId: profile.id, used: false },
     data: { used: true },
@@ -376,7 +460,7 @@ export async function requestPasswordReset(email: string): Promise<{ ok: boolean
     },
   });
 
-  // Send reset email (non-blocking)
+  // Send reset email (non-blocking).
   const resetUrl = `${process.env.APP_URL || 'http://localhost:5173'}/reset-password?token=${token}`;
   sendEmail(passwordResetEmail(profile.email, profile.displayName || 'Student', resetUrl))
     .catch(() => {});
@@ -385,8 +469,15 @@ export async function requestPasswordReset(email: string): Promise<{ ok: boolean
 }
 
 /**
- * Confirm a password reset. Validates the token, resets the password,
- * ends all other sessions, and marks the token as used.
+ * Confirm a password reset.
+ *
+ * Validates the token, hashes the new password with Argon2id, updates the
+ * profile, marks the token as used, and deletes all other sessions for the
+ * profile (forces re-sign-in on all devices).
+ *
+ * @param token - Reset token.
+ * @param newPassword - New password (min 12 chars).
+ * @returns { ok } or { ok, error }.
  */
 export async function confirmPasswordReset(
   token: string,
@@ -398,7 +489,7 @@ export async function confirmPasswordReset(
     return { ok: false, error: 'invalid_or_expired_token' };
   }
 
-  // Hash the new password
+  // Hash the new password.
   const passwordHash = await argon2.hash(newPassword, {
     type: argon2.argon2id,
     memoryCost: 65536,
@@ -406,7 +497,7 @@ export async function confirmPasswordReset(
     parallelism: 4,
   });
 
-  // Update password and mark token as used in a transaction
+  // Update password and mark token as used in a transaction.
   await prisma.$transaction([
     prisma.profile.update({
       where: { id: reset.profileId },
@@ -416,7 +507,7 @@ export async function confirmPasswordReset(
       where: { id: reset.id },
       data: { used: true },
     }),
-    // End all other sessions for this profile
+    // End all other sessions for this profile.
     prisma.session.deleteMany({
       where: { profileId: reset.profileId },
     }),
@@ -426,9 +517,13 @@ export async function confirmPasswordReset(
 }
 
 /**
- * Request email verification. Generates a single-use token valid for 7 days,
- * stores it in the database, and sends a verification email.
- * Never reveals whether the email exists.
+ * Request email verification.
+ *
+ * Generates a single-use token valid for 7 days, stores it in the DB,
+ * and sends a verification email. Never reveals whether the email exists.
+ *
+ * @param email - User's email address.
+ * @returns { ok, emailSent }.
  */
 export async function requestEmailVerification(email: string): Promise<{ ok: boolean; emailSent: boolean }> {
   const profile = await prisma.profile.findUnique({ where: { email } });
@@ -438,12 +533,12 @@ export async function requestEmailVerification(email: string): Promise<{ ok: boo
     return { ok: true, emailSent: false };
   }
 
-  // Already verified
+  // Already verified.
   if (profile.emailVerified) {
     return { ok: true, emailSent: false };
   }
 
-  // Invalidate any existing unused verification tokens
+  // Invalidate any existing unused verification tokens.
   await prisma.emailVerification.updateMany({
     where: { profileId: profile.id, used: false },
     data: { used: true },
@@ -460,7 +555,7 @@ export async function requestEmailVerification(email: string): Promise<{ ok: boo
     },
   });
 
-  // Send verification email (non-blocking)
+  // Send verification email (non-blocking).
   const verifyUrl = `${process.env.APP_URL || 'http://localhost:5173'}/verify-email?token=${token}`;
   sendEmail(emailVerificationEmail(profile.email, profile.displayName || 'Student', verifyUrl))
     .catch(() => {});
@@ -469,7 +564,12 @@ export async function requestEmailVerification(email: string): Promise<{ ok: boo
 }
 
 /**
- * Confirm email verification. Validates the token and marks the email as verified.
+ * Confirm email verification.
+ *
+ * Validates the token, sets emailVerified = true, marks token as used.
+ *
+ * @param token - Verification token.
+ * @returns { ok } or { ok, error }.
  */
 export async function confirmEmailVerification(token: string): Promise<{ ok: boolean; error?: string }> {
   const verification = await prisma.emailVerification.findUnique({ where: { token } });

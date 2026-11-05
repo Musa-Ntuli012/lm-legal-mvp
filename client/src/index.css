@@ -2,41 +2,69 @@
 @tailwind components;
 @tailwind utilities;
 
+/**
+ * LM Legal MVP Design System CSS
+ * ==================================
+ * This file implements the component-level CSS classes used throughout the
+ * frontend. Design tokens (colors, typography, spacing) are defined in
+ * tailwind.config.js; this file adds semantic component classes on top.
+ *
+ * Design constraints (strictly enforced):
+ * - No em/en/hyphen dashes in visible text.
+ * - No emojis or icons in visible UI (text labels only).
+ * - Minimum 44x44px touch targets for all interactive elements.
+ * - 2px brass focus ring with 2px offset for accessibility.
+ * - Light theme default; .dark class on <html> enables dark theme.
+ * - Animations respect prefers-reduced-motion: reduce.
+ */
+
+/* ============================================
+ * Base styles
+ * ============================================ */
+
 @layer base {
   html {
     font-size: 16px;
   }
+
   body {
-    background-color: #F7F3EC;
-    color: #0B1726;
+    background-color: #F7F3EC; /* canvas light */
+    color: #0B1726; /* text-deep light */
     font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
     min-height: 100vh;
-    antialiased: true;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Dark theme */
+  /* Dark theme: applied via .dark class on <html> */
   .dark {
-    background-color: #0B1017;
-    color: #ECE7DB;
+    background-color: #0B1017; /* canvas dark */
+    color: #ECE7DB; /* text-deep dark */
   }
 }
 
+/* ============================================
+ * Component classes
+ * ============================================ */
+
 @layer components {
-  /* Buttons */
+  /* ----- Buttons ----- */
+  /* All buttons are min-h-[44px] for touch target compliance. */
   .btn {
     @apply inline-flex items-center justify-center px-5 py-2.5 text-sm font-semibold rounded-lg transition-all duration-150 ease-out min-h-[44px];
   }
   .btn:active {
-    @apply scale-95;
+    @apply scale-95; /* micro-interaction on press */
   }
   .btn:disabled {
     @apply opacity-55 cursor-not-allowed scale-100;
   }
+
   .btn-primary {
-    @apply bg-primary text-white;
+    @apply bg-primary text-white; /* #14263F light / #C8A56A dark */
   }
   .btn-primary:hover:not(:disabled) {
-    @apply shadow-shadow-md;
+    @apply shadow-shadow-md; /* elevation on hover */
   }
   .btn-secondary {
     @apply bg-raised border border-border-control text-text-deep;
@@ -51,7 +79,7 @@
     @apply bg-primary text-white shadow-shadow-md;
   }
   .btn-danger {
-    @apply bg-error text-white;
+    @apply bg-error text-white; /* #A32A2A light / #F08A8A dark */
   }
   .btn-danger:hover:not(:disabled) {
     @apply shadow-shadow-md;
@@ -65,8 +93,15 @@
   .btn-full {
     @apply w-full;
   }
+  .btn-micro {
+    /* Additional micro-interaction: scale down on active press */
+    transition: all 100ms ease-out;
+  }
+  .btn-micro:active {
+    transform: scale(0.97);
+  }
 
-  /* Cards */
+  /* ----- Cards ----- */
   .card {
     @apply bg-raised border border-border-control rounded-lg shadow-sm p-6 transition-all duration-150 ease-out;
   }
@@ -76,8 +111,15 @@
   .card-sunken {
     @apply bg-sunken border border-border-control rounded-lg shadow-sm p-6;
   }
+  .card-lift {
+    /* Subtle lift on hover */
+    transition: all 150ms ease-out;
+  }
+  .card-lift:hover {
+    transform: translateY(-1px);
+  }
 
-  /* Inputs */
+  /* ----- Form inputs ----- */
   .input {
     @apply block w-full px-4 py-3 text-sm border border-border-control rounded-lg bg-sunken text-text-deep transition-colors duration-100 focus:outline-none focus:border-text-brass focus:ring-2 focus-ring;
   }
@@ -85,12 +127,12 @@
     @apply text-text-muted opacity-70;
   }
 
-  /* Labels */
+  /* ----- Labels ----- */
   .label {
     @apply block text-sm font-semibold text-text-secondary mb-1.5 mt-3;
   }
 
-  /* Badges */
+  /* ----- Badges (status chips) ----- */
   .badge {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border;
   }
@@ -116,60 +158,73 @@
     @apply bg-raised text-primary border-primary;
   }
 
-  /* Typography */
+  /* ----- Typography scale ----- */
+  /* Display: 34px bold, tight tracking — page headings */
   .text-display {
     font-size: 34px;
     letter-spacing: -0.02em;
     font-weight: 700;
   }
+  /* Title: 22px semibold — section headings */
   .text-title {
     font-size: 22px;
     font-weight: 600;
   }
+  /* Body: 17px regular, leading 1.5 — paragraphs */
   .text-body {
     font-size: 17px;
     font-weight: 400;
     line-height: 1.5;
   }
+  /* Caption 14 — small labels */
   .text-caption-14 {
     font-size: 14px;
     font-weight: 400;
   }
+  /* Caption 13 — tiny metadata */
   .text-caption-13 {
     font-size: 13px;
     font-weight: 400;
   }
 
-  /* Requirement ID tag */
+  /* ----- Requirement ID tag ----- */
   .req-id {
     @apply inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium border;
-    background-color: #E9E1CD;
-    color: #0B1726;
-    border-color: #8A8577;
+    background-color: #E9E1CD; /* sunken light */
+    color: #0B1726; /* text-deep light */
+    border-color: #8A8577; /* border-control light */
   }
   .dark .req-id {
-    background-color: #172130;
-    color: #ECE7DB;
-    border-color: #6F7886;
+    background-color: #172130; /* sunken dark */
+    color: #ECE7DB; /* text-deep dark */
+    border-color: #6F7886; /* border dark */
   }
 
-  /* Page entry animation */
+  /* ----- Page entry animation ----- */
   .page-enter {
     @apply animate-fade-in;
   }
 }
 
-/* Focus ring for accessibility */
+/* ============================================
+ * Focus ring (accessibility)
+ * ============================================ */
+
+/* 2px brass focus ring with 2px offset for keyboard navigation */
 .focus-ring:focus-visible {
-  outline: 2px solid #7A5A1E;
+  outline: 2px solid #7A5A1E; /* brass light */
   outline-offset: 2px;
 }
 .dark .focus-ring:focus-visible {
-  outline: 2px solid #C8A56A;
+  outline: 2px solid #C8A56A; /* brass dark */
   outline-offset: 2px;
 }
 
-/* Hover elevation */
+/* ============================================
+ * Hover elevation utilities
+ * ============================================ */
+
+/* Subtle lift + shadow on hover for interactive cards */
 .elevate {
   transition: all 150ms ease-out;
 }
@@ -181,23 +236,11 @@
   box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.4);
 }
 
-/* Card lift */
-.card-lift {
-  transition: all 150ms ease-out;
-}
-.card-lift:hover {
-  transform: translateY(-1px);
-}
+/* ============================================
+ * Reduced motion
+ * ============================================ */
 
-/* Micro-interaction for buttons */
-.btn-micro {
-  transition: all 100ms ease-out;
-}
-.btn-micro:active {
-  transform: scale(0.97);
-}
-
-/* Reduced motion */
+/* Disable all animations and transitions when user prefers reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-in,
   .animate-slide-in,

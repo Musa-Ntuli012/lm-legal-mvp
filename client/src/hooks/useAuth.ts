@@ -1,24 +1,68 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getSession, signIn, signUp, signOut, Profile } from '../services/api';
 
-export interface AuthState {
-  user: Profile | null;
-  loading: boolean;
-  csrfToken: string;
-  isAuthenticated: boolean;
+interface Profile {
+  id: string;
+  email: string;
+  role: string;
+  display_name: string;
 }
 
+interface SessionData {
+  csrf_token: string;
+  user: Profile | null;
+}
+
+/**
+ * Authentication hook for managing user session state.
+ *
+ * Provides:
+ * - `user`: The current authenticated profile, or null if not signed in.
+ * - `loading`: Whether the session is still being validated.
+ * - `csrfToken`: CSRF token from the session, for use in mutations.
+ * - `refreshSession()`: Re-validates the session from the server.
+ * - `signOut()`: Signs the user out and clears the session.
+ *
+ * Flow:
+ * 1. On mount, calls refreshSession() to check for a valid session cookie.
+ * 2. The server validates the session and returns the profile + CSRF token.
+ * 3. If the session is invalid or missing, user is null and pages show
+ *    sign-in/sign-up options.
+ * 4. CSRF token is passed to pages that make state-changing requests.
+ *
+ * Security:
+ * - Session is stored in an HttpOnly cookie (not accessible via JavaScript).
+ * - CSRF token is passed in response body and included in request headers.
+ * - All state-changing requests require the CSRF token.
+ *
+ * @returns { user, loading, csrfToken, refreshSession, signOut }
+ */
 export function useAuth() {
   const [user, setUser] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [csrfToken, setCsrfToken] = useState('');
 
+  /**
+   * Fetches the current session from the server.
+   * Updates user and csrfToken state based on the response.
+   */
   const refreshSession = useCallback(async () => {
     try {
-      setLoading(true);
-      const session = await getSession();
-      setUser(session.user);
-      setCsrfToken(session.csrf_token);
+      const response = await fetch('/api/auth/session', {
+        method: 'GET',
+        credentials: 'include', // include cookies
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data: SessionData = await response.json();
+        setUser(data.user);
+        setCsrfToken(data.csrf_token || '');
+      } else {
+        setUser(null);
+        setCsrfToken('');
+      }
     } catch (err) {
       console.error('Session refresh failed:', err);
       setUser(null);
@@ -28,44 +72,32 @@ export function useAuth() {
     }
   }, []);
 
+  /**
+   * Signs the user out by calling the server's sign-out endpoint,
+   * then clears local state and navigates to sign-in.
+   * Note: Navigation is handled by the caller (Layout.handleSignOut).
+   */
+  const signOut = useCallback(async () => {
+    try {
+      await fetch('/api/auth/sign-out', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    } catch (err) {
+      console.error('Sign out failed:', err);
+    } finally {
+      setUser(null);
+      setCsrfToken('');
+    }
+  }, []);
+
+  // Validate session on mount.
   useEffect(() => {
     refreshSession();
   }, [refreshSession]);
 
-  const handleSignIn = async (email: string, password: string) => {
-    const result = await signIn(email, password);
-    if (result.ok && result.user) {
-      setUser(result.user);
-      setCsrfToken(result.csrf_token || '');
-      return { ok: true, redirect: result.redirect };
-    }
-    return { ok: false, error: result.error || 'Sign in failed' };
-  };
-
-  const handleSignUp = async (email: string, password: string, displayName: string) => {
-    const result = await signUp(email, password, displayName);
-    if (result.ok && result.user) {
-      setUser(result.user);
-      setCsrfToken(result.csrf_token || '');
-      return { ok: true, redirect: result.redirect };
-    }
-    return { ok: false, error: result.error || 'Sign up failed' };
-  };
-
-  const handleSignOut = async () => {
-    await signOut();
-    setUser(null);
-    setCsrfToken('');
-  };
-
-  return {
-    user,
-    loading,
-    csrfToken,
-    isAuthenticated: !!user,
-    refreshSession,
-    signIn: handleSignIn,
-    signUp: handleSignUp,
-    signOut: handleSignOut,
-  };
+  return { user, loading, csrfToken, refreshSession, signOut };
 }
