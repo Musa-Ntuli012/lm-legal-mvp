@@ -301,7 +301,7 @@ router.post('/:id/publish', authenticate, requireRoles('MARKER', 'ADMINISTRATOR'
         submission.profile.displayName || 'Student',
         submission.task.title,
         existing.total ?? 0,
-        submission.submittedAt
+        0
       )).catch(() => {}); // never block on email failure
     }
   } catch {

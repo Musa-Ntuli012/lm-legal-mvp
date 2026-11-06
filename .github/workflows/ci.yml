@@ -54,20 +54,16 @@ jobs:
         working-directory: client
 
       - name: Run server lint
-        run: npm run lint
-        working-directory: server
+        run: npm run lint --workspace=server
 
       - name: Run client lint
-        run: npm run lint
-        working-directory: client
+        run: npm run lint --workspace=client
 
       - name: Run server typecheck
-        run: npm run typecheck
-        working-directory: server
+        run: npm run typecheck --workspace=server
 
       - name: Run client typecheck
-        run: npm run typecheck
-        working-directory: client
+        run: npm run typecheck --workspace=client
 
   test:
     name: Test
