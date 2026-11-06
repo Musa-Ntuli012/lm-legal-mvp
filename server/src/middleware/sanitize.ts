@@ -10,10 +10,10 @@ import { Request, Response, NextFunction } from 'express';
  */
 const SENSITIVE_FIELDS = new Set([
   'password',
-  'passwordHash',
-  'newPassword',
-  'confirmPassword',
-  'currentPassword',
+  'passwordhash',
+  'newpassword',
+  'confirmpassword',
+  'currentpassword',
 ]);
 
 /**

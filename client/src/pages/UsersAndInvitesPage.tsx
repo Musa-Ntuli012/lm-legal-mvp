@@ -1,6 +1,4 @@
 import { useState } from 'react';
-import { NavLink } from 'react-router-dom';
-
 const USERS = [
   { id: '1', name: 'A. Nkosi', email: 'ankosi@university.ac.za', role: 'Student', status: 'Active', joined: 'Jan 2024' },
   { id: '2', name: 'B. van der Merwe', email: 'bvander@university.ac.za', role: 'Student', status: 'Active', joined: 'Jan 2024' },

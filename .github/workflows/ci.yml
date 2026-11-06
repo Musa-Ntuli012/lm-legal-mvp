@@ -42,32 +42,28 @@ jobs:
           cache: 'npm'
 
       - name: Install root dependencies
-        run: npm ci
+        run: npm install
         working-directory: .
 
       - name: Install server dependencies
-        run: npm ci
+        run: npm install
         working-directory: server
 
       - name: Install client dependencies
-        run: npm ci
+        run: npm install
         working-directory: client
 
       - name: Run server lint
-        run: npm run lint
-        working-directory: server
+        run: npm run lint --workspace=server
 
       - name: Run client lint
-        run: npm run lint
-        working-directory: client
+        run: npm run lint --workspace=client
 
       - name: Run server typecheck
-        run: npm run typecheck
-        working-directory: server
+        run: npm run typecheck --workspace=server
 
       - name: Run client typecheck
-        run: npm run typecheck
-        working-directory: client
+        run: npm run typecheck --workspace=client
 
   test:
     name: Test
@@ -100,15 +96,15 @@ jobs:
           cache: 'npm'
 
       - name: Install root dependencies
-        run: npm ci
+        run: npm install
         working-directory: .
 
       - name: Install server dependencies
-        run: npm ci
+        run: npm install
         working-directory: server
 
       - name: Install client dependencies
-        run: npm ci
+        run: npm install
         working-directory: client
 
       - name: Generate Prisma client
@@ -151,15 +147,15 @@ jobs:
           cache: 'npm'
 
       - name: Install root dependencies
-        run: npm ci
+        run: npm install
         working-directory: .
 
       - name: Install server dependencies
-        run: npm ci
+        run: npm install
         working-directory: server
 
       - name: Install client dependencies
-        run: npm ci
+        run: npm install
         working-directory: client
 
       - name: Generate Prisma client
@@ -192,15 +188,15 @@ jobs:
           cache: 'npm'
 
       - name: Install root dependencies
-        run: npm ci
+        run: npm install
         working-directory: .
 
       - name: Install server dependencies
-        run: npm ci
+        run: npm install
         working-directory: server
 
       - name: Install client dependencies
-        run: npm ci
+        run: npm install
         working-directory: client
 
       - name: Run server audit
