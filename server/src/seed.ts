@@ -1,22 +1,13 @@
 import { PrismaClient } from '@prisma/client';
 import argon2 from 'argon2';
-import crypto from 'crypto';
 
 const prisma = new PrismaClient();
-
-/**
- * Generates a random password string using crypto.randomBytes.
- * Used for demo marker/admin accounts where the password is printed on seed.
- */
-function cryptoRandomPassword(): string {
-  return crypto.randomBytes(16).toString('base64url');
-}
 
 async function main() {
   console.log('Seeding database...');
 
   // Create demo marker user.
-  const markerPassword = cryptoRandomPassword();
+  const markerPassword = 'MarkerDemo2026!';
   const markerHash = await argon2.hash(markerPassword, {
     type: argon2.argon2id,
     memoryCost: 65536,
@@ -61,7 +52,7 @@ async function main() {
   console.log('Student created: student@lmlegal.demo / StudentDemo2026!');
 
   // Create demo administrator user.
-  const adminPassword = cryptoRandomPassword();
+  const adminPassword = 'AdminDemo2026!';
   const adminHash = await argon2.hash(adminPassword, {
     type: argon2.argon2id,
     memoryCost: 65536,

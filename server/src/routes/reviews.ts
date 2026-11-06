@@ -296,12 +296,17 @@ router.post('/:id/publish', authenticate, requireRoles('MARKER', 'ADMINISTRATOR'
   // Send feedback-published email to the student (non-blocking).
   try {
     if (submission.profile) {
+      const rubric = await prisma.rubric.findUnique({
+        where: { taskId: submission.taskId },
+        select: { maxScore: true },
+      });
+
       sendEmail(feedbackPublishedEmail(
         submission.profile.email,
         submission.profile.displayName || 'Student',
         submission.task.title,
         existing.total ?? 0,
-        0
+        rubric?.maxScore
       )).catch(() => {}); // never block on email failure
     }
   } catch {

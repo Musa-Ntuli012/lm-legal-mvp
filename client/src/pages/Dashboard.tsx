@@ -49,7 +49,7 @@ export function Dashboard() {
               <div className="card">
                 <h4 className="text-body font-semibold mb-4">Quick actions</h4>
                 <div className="space-y-2">
-                  <NavLink to="/matters" className="btn btn-secondary btn-full text-left justify-start py-3">
+                  <NavLink to="/matter" className="btn btn-secondary btn-full text-left justify-start py-3">
                     Browse matters
                   </NavLink>
                   <NavLink to="/portfolio" className="btn btn-secondary btn-full text-left justify-start py-3">
@@ -69,7 +69,7 @@ export function Dashboard() {
           <section className="flex-1 space-y-8">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
               <h2 className="text-title">Recent matters</h2>
-              <NavLink to="/matters" className="text-xs text-text-secondary hover:text-primary underline underline-offset-2">
+              <NavLink to="/matter" className="text-xs text-text-secondary hover:text-primary underline underline-offset-2">
                 View all matters
               </NavLink>
             </div>

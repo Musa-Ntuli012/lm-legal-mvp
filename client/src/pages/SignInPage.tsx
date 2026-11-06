@@ -1,14 +1,46 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../services/api';
+import { useAuth } from '../hooks/useAuth';
 
 export function SignInPage() {
   const navigate = useNavigate();
+  const { csrfToken, refreshSession } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    navigate('/dashboard');
+    setError('');
+
+    try {
+      const data = await api.post('/api/auth/sign-in', { email, password }, csrfToken);
+
+      // Server returns 200 with { error } on sign-in failure (generic message to prevent enumeration).
+      if (!(data as { ok?: boolean }).ok || (data as { error?: string }).error) {
+        setError((data as { error?: string }).error || 'Sign in failed. Please try again.');
+        return;
+      }
+
+      await refreshSession();
+
+      // Redirect using the server-provided redirect path (computed from user role).
+      // Fall back to deriving from user role if redirect is not present.
+      const redirect = (data as { redirect?: string }).redirect;
+      const role = (data as { user?: { role?: string } }).user?.role;
+      if (redirect) {
+        navigate(redirect);
+      } else if (role === 'ADMINISTRATOR') {
+        navigate('/admin');
+      } else if (role === 'MARKER') {
+        navigate('/marker/dashboard');
+      } else {
+        navigate('/dashboard');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Sign in failed. Please try again.');
+    }
   };
 
   const handleForgot = (e: React.MouseEvent) => {
@@ -33,6 +65,11 @@ export function SignInPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="mb-4 p-3 rounded border border-error bg-raised text-sm text-error">
+                  {error}
+                </div>
+              )}
               <div>
                 <label className="label" htmlFor="email">Email address</label>
                 <input

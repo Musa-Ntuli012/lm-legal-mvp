@@ -117,7 +117,7 @@ export function emailVerificationEmail(to: string, name: string, verifyUrl: stri
  * @param name - Recipient's display name.
  * @param taskTitle - Title of the marked task.
  * @param totalScore - The total score awarded.
- * @param maxScore - The maximum possible score.
+ * @param maxScore - The maximum possible score (optional; omitted when unavailable).
  * @returns Email options for sendEmail.
  */
 export function feedbackPublishedEmail(
@@ -125,12 +125,16 @@ export function feedbackPublishedEmail(
   name: string,
   taskTitle: string,
   totalScore: number,
-  maxScore: number
+  maxScore?: number
 ) {
+  const scoreLine = maxScore !== undefined
+    ? `Your score: ${totalScore} / ${maxScore}.\n`
+    : `Your score: ${totalScore}.\n`;
+
   return {
     to,
     subject: `Feedback published: ${taskTitle}`,
-    text: `Hi ${name},\n\nYour submission for "${taskTitle}" has been marked.\n\nYour score: ${totalScore} / ${maxScore}.\n\nLog in to view your detailed feedback.\n\n— The LM Legal team`,
+    text: `Hi ${name},\n\nYour submission for "${taskTitle}" has been marked.\n\n${scoreLine}Log in to view your detailed feedback.\n\n— The LM Legal team`,
   };
 }
 

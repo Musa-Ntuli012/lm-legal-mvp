@@ -192,12 +192,12 @@ export function Matter() {
                 <h3 className="text-title mb-4">Case documents</h3>
                 <div className="grid md:grid-cols-2 gap-4">
                   {MATTER_DOCUMENTS.map((doc) => (
-                    <div key={doc.id} className="card cursor-pointer hover:border-primary transition-colors">
-                      <div className="flex items-center gap-3 mb-4">
-                        <span className="w-8 h-8 rounded bg-raised border border-border-control flex items-center justify-center text-[10px] font-bold border">
+                    <div key={doc.id} className="card cursor-pointer hover:border-primary transition-colors min-w-0">
+                      <div className="flex items-center gap-3 mb-4 min-w-0">
+                        <span className="w-8 h-8 rounded bg-raised border border-border-control flex items-center justify-center text-[10px] font-bold border shrink-0">
                           {doc.type.toUpperCase()}
                         </span>
-                        <span className="text-body font-semibold">{doc.name}</span>
+                        <span className="text-body font-semibold truncate min-w-0 max-w-[180px]">{doc.name}</span>
                       </div>
                       <p className="text-caption-13 text-text-muted mb-4">{doc.size}</p>
                       <button className="btn btn-outline btn-sm w-full">
